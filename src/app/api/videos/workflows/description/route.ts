@@ -13,14 +13,6 @@ interface InputType {
   videoId: string;
 }
 
-const TITLE_PROMPT = `Your task is to generate an SEO-focused title for a YouTube video based on its transcript. Please follow these guidelines:
-- Be concise but descriptive, using relevant keywords to improve discoverability.
-- Highlight the most compelling or unique aspect of the video content.
-- Avoid jargon or overly complex language unless it directly supports searchability.
-- Use action-oriented phrasing or clear value propositions where applicable.
-- Ensure the title is 3-8 words long and no more than 100 characters.
-- ONLY return the title as plain text. Do not add quotes or any additional formatting.
-The transcript is:`;
 const DESCRIPTION_PROMPT = `Your task is to summarize the transcript of a video. Please follow these guidelines:
 - Be brief. Condense the content into a summary that captures the key points and main ideas without losing important details.
 - Avoid jargon or overly complex language unless necessary for the context.
@@ -49,22 +41,25 @@ export const { POST } = serve(async (context) => {
     return transcript;
   });
 
-  const generatedTitle = await context.run('generate-title', async () => {
-    //const genAI = new GoogleGenerativeAI(context.env.GEMINI_APIKEY!);
-    const model = genAI.getGenerativeModel({ model: GEMINI_PREFERED_MODEL });
+  const generatedDescription = await context.run(
+    'generate-description',
+    async () => {
+      //const genAI = new GoogleGenerativeAI(context.env.GEMINI_APIKEY!);
+      const model = genAI.getGenerativeModel({ model: GEMINI_PREFERED_MODEL });
 
-    const prompt = `${TITLE_PROMPT}"${transcript}"`;
-    const result = await model.generateContent(prompt);
-    return result.response.text();
-  });
-  //console.log('Generated title:', generatedTitle);
+      const prompt = `${DESCRIPTION_PROMPT}"${transcript}"`;
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+    }
+  );
 
-  if (!generatedTitle) throw new Error('Unable to generate a title');
+  if (!generatedDescription)
+    throw new Error('Unable to generate a description');
 
   await context.run('update-video', async () => {
     const updatedVideo = await db
       .update(videos)
-      .set({ title: generatedTitle })
+      .set({ description: generatedDescription })
       .where(and(eq(videos.id, videoId), eq(videos.userId, userId)))
       .returning();
     return updatedVideo;

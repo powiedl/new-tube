@@ -794,6 +794,85 @@ Wofür kann man Backgroundjobs verwenden:
 - Für langlaufende Tasks: weil es problematisch sein kann, wenn man seine App bei einem "Hoster" deployen und diese langlaufender Tasks enthalten, weil der Hoster diesen Task/Request wahrscheinlich mit einem Timeout beendet
 - Um Retries zu implementieren
 
+### [Upstash Workflows](https://upstash.com/docs/workflow/getstarted)
+
+Workflows werden mittels der `serve` Funktion von Upstash ausgelöst. In dieser definiert man einzelne Schritte als Funktionen. Diese Funktionen laufen aber nicht im eigenen Backend sondern in einer speziellen Umgebung bei Upstash (dort gibt es "keine" Timeouts - womit sie sich für langlaufende Tasks eigenen).
+
+Die Workflows werden über einen eigenen qStash-Client angetriggert. Diesen erstellt man sich am einfachsten in einer kurzen lib-Datei (/lib/workflow.ts), reichert ihn an der Stelle mit dem QSTASH_TOKEN an, exportiert diesen und bindet den Client dann überall dort ein, wo man einen Workflow auslösen will:
+
+**/lib/workflow.ts**
+
+```
+import { Client } from '@upstash/workflow';
+export const workflow = new Client({ token: process.env.QSTASH_TOKEN! });
+```
+
+Da die Funktion serve einen (API) Route handler zur Verfügung stellt ist es üblich diese Funktion in einer eigenen API-route zu verwenden. D. h. innerhalb der eigenen Applikation ruft man seine API-Route auf, die das Ergebnis von `serve` ist. Und serve erwartet als ersten Parameter die Callbackfunktion, die beim Aufruf der API Route ausgeführt werden soll.
+
+Im folgenden Beispiel sieht man einen Workflow, der aus zwei Schritten besteht (jedes `context.run` ist ein eigener Workflowschritt). Im Normalfall ist das dann eine async Routine (weil sie ja von der "Idee" her länger läuft, sonst würde man nicht den Umweg über den Workflow gehen).
+
+```
+import { serve } from '@upstash/workflow/nextjs';
+
+interface InputType {
+  userId: string;
+  videoId: string;
+}
+
+export const { POST } = serve(async (context) => {
+  const { videoId, userId } = context.requestPayload as InputType;
+  const existingVideo = await context.run('get-video', async () => {
+    const data = await db
+      .select()
+      .from(videos)
+      .where(and(eq(videos.id, videoId), eq(videos.userId, userId)));
+    return data;
+  });
+  if (!existingVideo) throw new Error('Not found');
+
+  await context.run('step-2', () => {
+    console.log(`step-2: videoId:${input.videoId}`);
+  });
+});
+
+```
+
+#### serve
+
+Die Callbackfunktion erhält als ersten Parameter den context. Dieser ist nützlich weil er einerseits die Parameter erhält, die man an die eigene API übergeben hat (im Attribut input) und andererseits erhält er auch das environment (im Attribut env), d. h. in der Funktion kann man dann mit `env.MEINE_ENV_VARIABLE` auf den Wert, der in der Environment-Variable MEINE_ENV_VARIABLE gespeichert ist zugreifen.
+
+#### context.run
+
+Die context.run Funktion erwartet zwei Parameter: eine Bezeichnung des Workflowschritts (den sieht man dann auf der Weboberfläche von Upstash) und eben die Funktion, die diesen Schritt ausmacht. Im obigen Beispiel wird im ersten Schritt das entsprechende Video aus der Datenbank geladen. Danach wird ein Fehler geworfen, wenn das Video nicht gefunden wird (oder es nicht dem User gehört). Wenn man diesen Fehler innerhalb von context.run wirft, interpretiert das Upstash als temporäres Problem und wird diesen Schritt so oft wiederholen, bis er entweder erfolgreich ist oder bis das Retry Limit erreicht ist.
+
+Daher ist es wichtig, beim Werfen eines Fehlers zu überlegen, ob es ein temporäer Fehler ist (z. b. der Endpunkt wurde nicht erreicht) oder ein permanenter Fehler (in unserem Fall ruft irgendwas die API falsch auf) - und je nachdem an der richtigen Stelle den Fehler zu werfen (bei uns eben außerhalb von `context.run`, weil wir nicht davon ausgehen, dass bei einer erneuten Datenbankabfrage auf einmal das gesuchte Video auftaucht).
+
+Wenn man etwas in `context.run` returned wird das auch als Ergebnis des jeweiligen Schritts in der Upstash Workflow Eventansicht angezeigt. Es ist also durchaus überlegenswert etwas zu returnen, auch wenn man das Ergebnis nicht unbedingt für die weitere Verarbeitung in der App benötigt (weil es das Troubleshooting erleichtert).
+
+Im Moment habe ich nur das Problem, dass ich keine Möglichkeit gefunden habe, wie man einen Endpunkt anstößt, der die Parameter als formData erwartet, weil context.run den Content-Type Header scheinbar immer auf 'application/json' setzt).
+
+#### Zusammenspiel mit tRPC
+
+Wenn man auch tRPC verwendet, kommt noch eine Ebene "dazwischen" - die procedures, die im createTRPCRouter definiert werden. Hier ein Beispiel, wie so eine Procedure aussehen kann:
+
+```
+import { workflow } from '@/lib/workflow';
+...
+  generateThumbnail: protectedProcedure
+    .input(z.object({ id: z.string().uuid() })) // die Prozedur erwartet einen Parameter id vom Type z.string().uuid()
+    .mutation(async ({ ctx, input }) => { // es ist eine "ändernde" Prozedur, die sowohl den Kontext als auch die übergebenen Parameter verarbeiten soll
+      const { id: userId } = ctx.user; // aus dem Kontext holt man die userId (bzw. aus ctx.user die id und nennt sie auf userId um)
+      const url = `${process.env.UPSTASH_WORKFLOW_URL}/api/videos/workflows/title`; // die UPSTASH_WORKFLOW_URL ist die offizielle Domäne, die man über ngrok bekommt
+      console.log('generateThumbnail,url', url);
+      const { workflowRunId } = await workflow.trigger({ // Hier wird der Workflow aufgerufen - indem eben die Url angestoßen wird, d. h. über diese steuert man genau welchen Workflow man triggern will
+        url,
+        body: { userId, videoId: input.id }, // Im body übergibt man die Parameter für den Workflow - die in der Workflowfunktion dann über context.requestPayload zur Verfügung stehen
+        retries: 1,
+      });
+      return workflowRunId;
+    }),
+```
+
 ## AI - OpenAI Alternative (Google Gemini)
 
 I will try Google Gemini as they offer a free tier, which I guess is sufficient and the API doesn't look very complicated (https://ai.google.dev/gemini-api/docs/quickstart?lang=node).
@@ -805,3 +884,28 @@ bun add @google/generative-ai
 ### Get your API-Key
 
 First things first, so let's get an API key - https://aistudio.google.com/app/apikey, and there you have "Get API key". Store your API key in a secret place and I think it is also a good idea to store the google project number in the same place.
+
+### Create a lib file to centralize all Gemini stuff in one place
+
+I've decided to create a `/lib/gemini.ts`, where I bundle all things related to Gemini. With this approach I can define the model to use only once. Maybe I will even go one step further and put the model in an environment variable so I can change it without building the whole application again. But for now it is good enough.
+
+```
+export { GoogleGenerativeAI } from '@google/generative-ai';
+export const GEMINI_PREFERED_MODEL = 'gemini-2.0-flash-lite-preview-02-05';
+export const GEMINI_BACKUP_MODEL = 'gemini-1.5-flash';
+```
+
+### Generate the title from the transcript
+
+The generation assumes, that the transcript is already available in the variable transcript. It got fetched before from MUX. The rest of the prompt is the one Antonio shares at his [public Gist](https://www.youtube.com/redirect?event=video_description&redir_token=QUFFLUhqbEo2MGtDaDYzY1kyc0lTUDA2V0xJX1hQajBkQXxBQ3Jtc0tuellRSmNXYk0tWV9lSklfSGp1YzRHQUpnX25BZEJmYld0MHc4WkZwRWFhSEVmbEZ4bW5hRmVuOE1DcktQQklCNUhlUXU4Rm1USTN5QU9XNW1EcEVYeXVBQmhpUTJ0dWUyckVPcV9fOGo0emVRMEZYSQ&q=https%3A%2F%2Fdub.sh%2Fyoutube-clone-assets&v=ArmPzvHTcfQ).
+
+```
+  const generatedTitle = await context.run('generate-title', async () => {
+    const genAI = new GoogleGenerativeAI(context.env.GEMINI_APIKEY!);
+    const model = genAI.getGenerativeModel({ model: GEMINI_PREFERED_MODEL });
+
+    const prompt = `${TITLE_PROMPT}"${transcript}"`;
+    const result = await model.generateContent(prompt);
+    return result.response.text();
+  });
+```

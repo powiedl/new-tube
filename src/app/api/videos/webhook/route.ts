@@ -71,11 +71,13 @@ export const POST = async (request: Request) => {
       const tempPreviewUrl = `https://image.mux.com/${playbackId}/animated.gif`;
       const duration = data.duration ? Math.round(data.duration * 1000) : 0;
 
+      console.log('  temp Urls:', { tempThumbnailUrl, tempPreviewUrl });
       const utapi = new UTApi();
       const [uploadedThumbnail, uploadedPreview] =
         await utapi.uploadFilesFromUrl([tempThumbnailUrl, tempPreviewUrl]);
 
       if (!uploadedThumbnail.data || !uploadedPreview.data) {
+        console.log('Failed to upload thumbnail or preview');
         return new Response('Failed to upload thumbnail or preview', {
           status: 500,
         });

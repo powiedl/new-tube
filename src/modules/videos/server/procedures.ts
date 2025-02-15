@@ -9,17 +9,45 @@ import { UTApi } from 'uploadthing/server';
 import { z } from 'zod';
 
 export const videosRouter = createTRPCRouter({
-  generateThumbnail: protectedProcedure.mutation(async ({ ctx }) => {
-    const { id: userId } = ctx.user;
-    const url = `${process.env.UPSTASH_WORKFLOW_URL}/api/videos/workflows/title`;
-    console.log('generateThumbnail,url', url);
-    const { workflowRunId } = await workflow.trigger({
-      url,
-      body: { userId },
-      retries: 1,
-    });
-    return workflowRunId;
-  }),
+  generateDescription: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const { id: userId } = ctx.user;
+      const url = `${process.env.UPSTASH_WORKFLOW_URL}/api/videos/workflows/description`;
+      console.log('generateThumbnail,url', url);
+      const { workflowRunId } = await workflow.trigger({
+        url,
+        body: { userId, videoId: input.id },
+        retries: 1,
+      });
+      return workflowRunId;
+    }),
+  generateTitle: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const { id: userId } = ctx.user;
+      const url = `${process.env.UPSTASH_WORKFLOW_URL}/api/videos/workflows/title`;
+      console.log('generateThumbnail,url', url);
+      const { workflowRunId } = await workflow.trigger({
+        url,
+        body: { userId, videoId: input.id },
+        retries: 1,
+      });
+      return workflowRunId;
+    }),
+  generateThumbnail: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const { id: userId } = ctx.user;
+      const url = `${process.env.UPSTASH_WORKFLOW_URL}/api/videos/workflows/title`;
+      console.log('generateThumbnail,url', url);
+      const { workflowRunId } = await workflow.trigger({
+        url,
+        body: { userId, videoId: input.id },
+        retries: 1,
+      });
+      return workflowRunId;
+    }),
   restoreThumbnail: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
