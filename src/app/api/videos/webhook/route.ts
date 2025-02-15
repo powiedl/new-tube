@@ -21,7 +21,9 @@ type WebhookEvent =
   | VideoAssetDeletedWebhookEvent;
 
 export const POST = async (request: Request) => {
-  console.log('HITTING MUX WEBHOOK ...');
+  console.log(
+    `${new Date().getHours()}:${new Date().getMinutes()}:${new Date().getSeconds()} HITTING MUX WEBHOOK ...`
+  );
   if (!SIGNING_SECRET) throw new Error('MUX_WEBHOOK_SECRET is not set');
 
   const headersPayload = await headers();

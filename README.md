@@ -123,7 +123,7 @@ Im Moment weiß die Datenbank noch nichts von unserem users Modell bzw der anzul
 
 Drizzle bietet ein Studio (ähnlich wie Prisma). Damit kann man lokal die Datenbank ansehen und analysieren. Man startet das Studio mit diesem Befehl `bunx drizzle-kit studio` und danach erreicht man es über diese [URL](https://local.drizzle.studio/).
 
-### Drizzle - Beziehungen zwischen Tabellen
+### Beziehungen zwischen Tabellen
 
 Man kann mit Drizzle auch Beziehungen zwischen Tabellen herstellen. Dazu sind mehrere Dinge notwendig.
 
@@ -159,6 +159,31 @@ Der Grund, warum es diese "Doppelanlage" braucht ist, weil Drizzle zwischen Fore
 Im Gegensatz dazu sind Relations nur in der Applikation vorhanden - sie spiegeln sich nicht in der Datenbank wider. Aus diesem Grund muss man sie in der Applikation "extra" definieren. Man kann Relations und Foreign Keys nebeneinander verwenden. Wenn man Relations im Schema verändert und dann ein `drizzle-kit push` ausführt, führt das zu keinen Änderungen an der Datenbank, d. h. die Datenbank "weiß" nichts von diesen Relations. Vielleicht braucht man auch keine Relations, wenn man keine relational Queries benutzt (sondern nur select mit joins) - aber das ist nur die Vermutung vom Vortragenden.
 
 Weiterführende Details siehe die Dokumentation von Drizzle zum Thema [Relations](https://orm.drizzle.team/docs/relations) (ein Unterpunkt sind dort die Foreign Keys).
+
+### Joins in Drizzle
+
+Man kann in Drizzle auch Joins über mehrere Tabellen machen. Dazu gibt es die Methoden `.innerJoin`, `.leftJoin`, `.rightJoin` und `.outerJoin`. Diese werden nach dem from() verwendet und erwarten 2 Parameter, nämlich das zu verknüpfende Modell und die Bedingungen, die gelten müssen, damit die beiden Datensätze als "zusammengehörend" betrachtet werden.
+
+```
+  .from(videos)
+  .innerJoin(users, eq(videos.userId, users.id))
+```
+
+Im Beispiel wird das users Modell zum videos Modell dazugejoined und es gehören jene Datensätze zusammen, wo die id Spalte im users Modell mit der userId Spalte im videos Modell gleich ist.
+
+Will man dann auch aus beiden Tabellen Spalten im Ergebnis haben, muss man dies im select schreiben. Dabei kann man explizit einzelne Spalten nehmen oder alle (aber für alle muss man überdie Funktion `getTableColumns` gehen):
+
+```
+  .select({
+    ...getTableColumns(videos),
+    user: {
+      ...getTableColumns(users),
+    },
+    userName:users.name,
+  })
+```
+
+Im Beispiel werden alle Informationen von dem passenden User unter einem Attribut zusammengefasst. Ich habe (sinnloserweise, aber als Referenz) auch angegeben wie man nur den name als userName zur Verfügung stellt.
 
 ## [ngrok](https://dashboard.ngrok.com)
 
@@ -575,6 +600,16 @@ export const StudioUploadModal = () => {
 
 Beim Klick auf den Button wird ein neues Video in der Datenbank angelegt (indem der useMutation Hook der create Prozedur aufgerufen wird). Im Erfolgsfall (das Video wurde gespeichert) wird die Query für studio.getMany - das alle eigenen Videos lädt - invalidiert. Dazu wird der `useUtils` Hook von `trpc` verwendet, der ein Objekt mit diversen Hilfroutinen zur Verfügung stellt (eben z.b. `invalidate()` um eine bestimmte Query als "ungültig" zu markieren).
 
+### tRPC - Inference der Typen von procedures
+
+tRPC kommt mit einer netten Hilfsfunktion zum inferen der Typen von prodedures (ìnferRouterOutputs`).
+
+```
+import { inferRouterOutputs } from '@trcp/server';
+import { AppRouter } from '@/trpc/routers/_app'; // dort hat man diese Zeile: export type AppRouter = typeof appRouter;
+export type VideoGetOneOut = inferRouterOutputs<AppRouter>['videos']['getOne']; // das liefert eben den Typ des Outputs der Procedure getOne in der videos Route
+```
+
 ## Infinite Scroll
 
 Die prinzipielle Idee von Infinite Scroll ist es, dass immer ein (kleiner) Teil der nächsten Daten geladen wird, sobald der User weit genug nach unten scrollt. Der hier gezeigte Ansatz funktioniert mit folgender Idee:
@@ -909,3 +944,7 @@ The generation assumes, that the transcript is already available in the variable
     return result.response.text();
   });
 ```
+
+## AI - OpenAI Alternative ([Imagine.Art](https://www.imagine.art/))
+
+Unfortunatly Google Gemini offers no free tier for text to image creation. I've searched the internet and finally I found an AI API that offers free text to image conversion, **Imagine art**. But there is another downside to this service - it expects the input as formData - and until now I'm not able to get Upstash Workflow to send the data as form Data (no matter what type of header I put in the request, it is always converted to `application/json`). That's why the generate thumbnail option is temporary disabled (I will activate it later , if I find a solution to send formData or if I find another text to image AI with a free tier).

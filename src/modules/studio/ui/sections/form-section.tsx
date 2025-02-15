@@ -52,6 +52,8 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { THUMBNAIL_FALLBACK } from '@/modules/videos/constants';
 import { ThumbnailUploadModal } from '../components/thumbnail-upload-modal';
+import { ThumbnailGenerateModal } from '../components/thumbnail-generate-modal';
+
 interface FormSectionProps {
   videoId: string;
 }
@@ -72,7 +74,8 @@ const FormSectionSkeleton = () => {
 const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
   const router = useRouter();
   const [isCopied, setIsCopied] = useState(false);
-  const [thumbnailOpen, setThumbnailOpen] = useState(false);
+  const [thumbnailUploadOpen, setThumbnailUploadOpen] = useState(false);
+  const [thumbnailGenerateOpen, setThumbnailGenerateOpen] = useState(false);
   const utils = trpc.useUtils();
   const [video] = trpc.studio.getOne.useSuspenseQuery({ id: videoId });
   const [categories] = trpc.categories.getMany.useSuspenseQuery();
@@ -116,16 +119,6 @@ const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
       toast.error('Something went wrong');
     },
   });
-  const generateThumbnail = trpc.videos.generateThumbnail.useMutation({
-    onSuccess: () => {
-      toast.success('Background job started', {
-        description: 'This may take some time ...',
-      });
-    },
-    onError: () => {
-      toast.error('Something went wrong');
-    },
-  });
   const restoreThumbnail = trpc.videos.restoreThumbnail.useMutation({
     onSuccess: () => {
       utils.studio.getMany.invalidate();
@@ -159,8 +152,13 @@ const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
   return (
     <>
       <ThumbnailUploadModal
-        open={thumbnailOpen}
-        onOpenChange={setThumbnailOpen}
+        open={thumbnailUploadOpen}
+        onOpenChange={setThumbnailUploadOpen}
+        videoId={videoId}
+      />
+      <ThumbnailGenerateModal
+        open={thumbnailGenerateOpen}
+        onOpenChange={setThumbnailGenerateOpen}
         videoId={videoId}
       />
       <Form {...form}>
@@ -296,14 +294,12 @@ const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align='start' side='right'>
                             <DropdownMenuItem
-                              onClick={() => setThumbnailOpen(true)}
+                              onClick={() => setThumbnailUploadOpen(true)}
                             >
                               <ImagePlusIcon className='size-4 mr-1' /> Change
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() =>
-                                generateThumbnail.mutate({ id: videoId })
-                              }
+                              onClick={() => setThumbnailGenerateOpen(true)}
                             >
                               <SparkleIcon className='size-4 mr-1' /> AI
                               generated

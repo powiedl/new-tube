@@ -1,14 +1,33 @@
 import { db } from '@/db';
-import { videos, videoUpdateSchema } from '@/db/schema';
+import { users, videos, videoUpdateSchema } from '@/db/schema';
 import { mux } from '@/lib/mux';
 import { workflow } from '@/lib/workflow';
-import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
+import {
+  baseProcedure,
+  createTRPCRouter,
+  protectedProcedure,
+} from '@/trpc/init';
 import { TRPCError } from '@trpc/server';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, getTableColumns } from 'drizzle-orm';
 import { UTApi } from 'uploadthing/server';
 import { z } from 'zod';
 
 export const videosRouter = createTRPCRouter({
+  getOne: baseProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const [existingVideo] = await db
+        .select({
+          ...getTableColumns(videos),
+          user: { ...getTableColumns(users) },
+        })
+        .from(videos)
+        .where(eq(videos.id, input.id))
+        .innerJoin(users, eq(videos.userId, users.id));
+
+      if (!existingVideo) throw new TRPCError({ code: 'NOT_FOUND' });
+      return existingVideo;
+    }),
   generateDescription: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
@@ -36,14 +55,14 @@ export const videosRouter = createTRPCRouter({
       return workflowRunId;
     }),
   generateThumbnail: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(z.object({ id: z.string().uuid(), prompt: z.string().min(10) }))
     .mutation(async ({ ctx, input }) => {
       const { id: userId } = ctx.user;
-      const url = `${process.env.UPSTASH_WORKFLOW_URL}/api/videos/workflows/title`;
+      const url = `${process.env.UPSTASH_WORKFLOW_URL}/api/videos/workflows/thumbnail`;
       console.log('generateThumbnail,url', url);
       const { workflowRunId } = await workflow.trigger({
         url,
-        body: { userId, videoId: input.id },
+        body: { userId, videoId: input.id, prompt: input.prompt },
         retries: 1,
       });
       return workflowRunId;
