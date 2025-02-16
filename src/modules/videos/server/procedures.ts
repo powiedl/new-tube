@@ -1,5 +1,6 @@
 import { db } from '@/db';
 import {
+  subscriptions,
   users,
   videoReactions,
   videos,
@@ -14,7 +15,7 @@ import {
   protectedProcedure,
 } from '@/trpc/init';
 import { TRPCError } from '@trpc/server';
-import { and, eq, getTableColumns, inArray } from 'drizzle-orm';
+import { and, eq, getTableColumns, inArray, isNotNull } from 'drizzle-orm';
 import { UTApi } from 'uploadthing/server';
 import { z } from 'zod';
 
@@ -41,11 +42,28 @@ export const videosRouter = createTRPCRouter({
           .from(videoReactions)
           .where(inArray(videoReactions.userId, userId ? [userId] : []))
       );
+
+      const viewerSubscriptions = db.$with('viewer_subscriptions').as(
+        db
+          .select()
+          .from(subscriptions)
+          .where(inArray(subscriptions.viewerId, userId ? [userId] : []))
+      );
       const [existingVideo] = await db
-        .with(viewerReactions)
+        .with(viewerReactions, viewerSubscriptions)
         .select({
           ...getTableColumns(videos),
-          user: { ...getTableColumns(users) },
+          user: {
+            ...getTableColumns(users),
+            viewerSubscribed: isNotNull(viewerSubscriptions.viewerId).mapWith(
+              // isNotNull liefert unknown, wenn kein passender Datensatz existiert, mit mapWith konvertiert man das in ein Boolean
+              Boolean
+            ),
+            subscriberCount: db.$count(
+              subscriptions,
+              eq(subscriptions.creatorId, users.id)
+            ),
+          },
           viewCount: db.$count(videoViews, eq(videoViews.videoId, videos.id)), // TODO change to correct query
           likeCount: db.$count(
             videoReactions,
@@ -64,8 +82,12 @@ export const videosRouter = createTRPCRouter({
           viewerReaction: viewerReactions.type,
         })
         .from(videos)
-        .innerJoin(users, eq(videos.userId, users.id))
+        .innerJoin(users, eq(videos.userId, users.id)) // we get the user, which is the author of the video
         .leftJoin(viewerReactions, eq(videos.id, viewerReactions.videoId)) // viewerReactions only contains the reaction of the current user!
+        .leftJoin(
+          viewerSubscriptions,
+          eq(viewerSubscriptions.creatorId, users.id)
+        ) // so we can check, if the user is subscribed to the video' author
         .where(eq(videos.id, input.id));
       //.groupBy(videos.id, users.id, viewerReactions.type); // in my opinion this is not neccessary, because there can only be one viewerReaction for a particular user and video
 

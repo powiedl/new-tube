@@ -149,6 +149,8 @@ Damit richtet man einen Verweis auf die Tabelle users ein (bzw. auf das Modell u
 
 Zusätzlich "muss" noch ein separates Relation-Objekt erzeugt werden (zwingend erforderlich ist dies nur, wenn man - auch - Relational Queries - verwenden will). Wenn man nur SQL Queries verwendet, kann man sich diesen Schritt sparen (es empfiehlt sich aber, diesen Schritt immer zu machen, weil vielleicht will man "morgen" auch Relational Queries in seiner App verwenden).
 
+Außerdem kann man in einer reinen SQL Applikation "unschöne" Spaltennamen in den Tabellen bekommen, wenn man eine Beziehung auf die gleiche Tabelle erstellt - siehe [Ein Relation-Objekt auf die gleiche Tabelle](#Ein Relation-Objekt auf die gleiche Tabelle) erzeugen.
+
 ```
 export const videoRelations =relations(videos,({one}) => ({
   user:one(users, {
@@ -163,6 +165,43 @@ Der Grund, warum es diese "Doppelanlage" braucht ist, weil Drizzle zwischen Fore
 Im Gegensatz dazu sind Relations nur in der Applikation vorhanden - sie spiegeln sich nicht in der Datenbank wider. Aus diesem Grund muss man sie in der Applikation "extra" definieren. Man kann Relations und Foreign Keys nebeneinander verwenden. Wenn man Relations im Schema verändert und dann ein `drizzle-kit push` ausführt, führt das zu keinen Änderungen an der Datenbank, d. h. die Datenbank "weiß" nichts von diesen Relations. Vielleicht braucht man auch keine Relations, wenn man keine relational Queries benutzt (sondern nur select mit joins) - aber das ist nur die Vermutung vom Vortragenden.
 
 Weiterführende Details siehe die Dokumentation von Drizzle zum Thema [Relations](https://orm.drizzle.team/docs/relations) (ein Unterpunkt sind dort die Foreign Keys).
+
+#### Ein Relation-Objekt auf die gleiche Tabelle
+
+Damit man da den Spaltennamen bestimmen kann, muss man zwei Dinge machen. Man muss der Relation einen Namen geben:
+
+```
+export const subscriptionRelations = relations(subscriptions, ({ one }) => ({
+  viewerId: one(users, {
+    fields: [subscriptions.viewerId],
+    references: [users.id],
+    relationName: 'subscriptions_viewer',
+  }),
+  creatorId: one(users, {
+    fields: [subscriptions.creatorId],
+    references: [users.id],
+    relationName: 'subscriptions_creator',
+  }),
+}));
+```
+
+Und man muss bei den Relations des betreffenden Modells (im Beispiel `users`) diesen relationName ebenfalls angeben:
+
+```
+export const userRelations = relations(users, ({ many }) => ({
+  videos: many(videos),
+  videoViews: many(videoViews),
+  videoReactions: many(videoReactions),
+  subscriptions: many(subscriptions, {
+    relationName: 'subscriptions_viewer',
+  }),
+  subscribers: many(subscriptions, {
+    relationName: 'subscriptions_creator',
+  }),
+}));
+```
+
+Damit erhalten die Spalten dann im `users` Modell den angegebenen Namen - eben `subscriptions` und `subscribers`.
 
 ### Joins in Drizzle
 
