@@ -45,7 +45,6 @@ export const VideoReactions = ({
       }
     },
   });
-  console.log('video-reaction,viewerReaction:', viewerReaction);
   return (
     <div className='flex items-center flex-none'>
       <Button
