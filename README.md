@@ -123,13 +123,17 @@ Im Moment weiß die Datenbank noch nichts von unserem users Modell bzw der anzul
 
 Drizzle bietet ein Studio (ähnlich wie Prisma). Damit kann man lokal die Datenbank ansehen und analysieren. Man startet das Studio mit diesem Befehl `bunx drizzle-kit studio` und danach erreicht man es über diese [URL](https://local.drizzle.studio/).
 
-### Beziehungen zwischen Tabellen
-
-Man kann mit Drizzle auch Beziehungen zwischen Tabellen herstellen. Dazu sind mehrere Dinge notwendig.
-
 ### Drizzle - automatisch zod Schemata für Tabellen anlegen
 
 Man kann mit dem Package `drizzle-zod` automatisch zodSchemata für Tabellen, die man über drizzle verwaltet, erzeugen. Dazu hat diese Paket drei Funktionen `createInsertSchema`, `createUpdateSchema` und `createSelectSchema`. Alle drei Funktionen erwarten als Parameter das entsprechende Drizzle Modell für das ein Schema erzeugt werden soll. Normalerweise ruft man die entsprechend benötigten Methoden nach der Tabellendefinition im `schema.ts` auf und exportiert ihr Ergebnis.
+
+### Drizzle - Vergleichsoperatoren
+
+Drizzle kommt auch mit einer Menge Vergleichsoperatoren bzw. sollte man besser Vergleichsfunktionen sagen. Beispiele sind `eq` (prüft ob die beiden Parameter gleich sind), `inArray` (prüft ob das zweite Array im ersten enthalten ist).
+
+### Beziehungen zwischen Tabellen
+
+Man kann mit Drizzle auch Beziehungen zwischen Tabellen herstellen. Dazu sind mehrere Dinge notwendig.
 
 #### In der "Childtabelle" eine Referenz auf die "Parenttabelle" eintragen
 
@@ -143,7 +147,7 @@ Damit richtet man einen Verweis auf die Tabelle users ein (bzw. auf das Modell u
 
 #### Ein Relation-Objekt erzeugen
 
-Zusätzlich muss noch ein separates Relation-Objekt erzeugt werden.
+Zusätzlich "muss" noch ein separates Relation-Objekt erzeugt werden (zwingend erforderlich ist dies nur, wenn man - auch - Relational Queries - verwenden will). Wenn man nur SQL Queries verwendet, kann man sich diesen Schritt sparen (es empfiehlt sich aber, diesen Schritt immer zu machen, weil vielleicht will man "morgen" auch Relational Queries in seiner App verwenden).
 
 ```
 export const videoRelations =relations(videos,({one}) => ({
@@ -184,6 +188,84 @@ Will man dann auch aus beiden Tabellen Spalten im Ergebnis haben, muss man dies 
 ```
 
 Im Beispiel werden alle Informationen von dem passenden User unter einem Attribut zusammengefasst. Ich habe (sinnloserweise, aber als Referenz) auch angegeben wie man nur den name als userName zur Verfügung stellt.
+
+### Kombinierter Primary Key in Drizzle
+
+Manchmal ist es notwendig, dass man einen Primary Key über mehrere Spalten bildet, d. h. erst die Kombination dieser Spalten zusammen ist eindeutig. Das kann man bei der Definition des Schemas erreichen, indem man als weiteren Parameter eine entsprechende Callback Funktion angibt. Diese Funktion erhält als ersten Parameter die Tabelle. Diese muss ein Array liefern, in dem die Funktion primaryKey aufgerufen wird. Diese Funktion wiederum erwartet ein Objekt als Parameter. Dieses Objekt hat einerseits das Attribut name (das wird der Name des Primary Keys) und andererseits ein Attribut columns, welches ein Array ist. Der Inhalt dieses Arrays sind die Spalten die den Primary Key bilden sollen. Im folgenden ein Beispiel, dass einen Primary Key über die Spalten userId und videoId anlegt (bei diesen Spalten handelt es sich um Referenzen auf die Modelle users und videos):
+
+```
+export const videoViews = pgTable(
+  'video_views',
+  {
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    videoId: uuid('video_id')
+      .references(() => videos.id, { onDelete: 'cascade' })
+      .notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ name: 'video_views_pk', columns: [t.userId, t.videoId] }),
+  ]
+);
+```
+
+Will man dann beispielsweise zählen, wie oft ein video angesehen wurde, kann man `db.$count(videoViews,eq(videoViews.videoId,videos.id))` verwenden. Bei dem Beispiel ist in videos.id die id des gerade "interessanten" Videos gespeichert (es ist ein Teil der getOne Procedure im videos modules - `src/modules/videos/server/procedures.ts`). Dieses Vorgehen erspart eine Subquery, trotzdem sollte man es nur in so einfachen Fällen, wo man eben alle Vorkommen in einer anderen Tabelle zählen will (die einer einfachen Bedingung genügen).
+
+### Common Table Expressions (CTE)
+
+Man kann mit drizzle auch CTEs erstellen. Dazu verwendet man die `db.$with` Methode. Diese erwartet einen Parameter (den Namen der CTE). Und das Ergebnis davon hat selbst wieder die Methode `as`, der man die eigentliche Query der CTE übergibt. Die Methode `as` erwartet dann als Parameter ein `db` Objekt mit einer `select` Methode. Danach kann man diese CTE in einem nachfolgenden db Statement wie eine andere Tabelle verwenden.
+
+Im folgenden ein Beispiel wo man über eine CTE die Reaktion des aktuellen Benutzers (in der Variable `userId` gespeichert) ermittelt. Das verwendet man dann, damit man diese Information (like oder dislike oder gar keine Reaktion des aktuellen Users auf das aktuelle Video) zurückgeben kann, damit die GUI das entsprechend darstellen kann.
+
+```
+const viewerReactions = db.$with('viewer_reactions').as(
+  db
+    .select({
+      videoId: videoReactions.videoId,
+      type: videoReactions.type,
+    })
+    .from(videoReactions)
+    .where(inArray(videoReactions.userId, userId ? [userId] : []))
+);
+```
+
+Und hier ein Beispiel, wie man das dann benützt, um eine eventuelle Reaktion des aktuellen Benutzers zurückzuliefern. Dabei muss man die CTE mittels der Methode `with` "einbinden":
+
+```
+const [existingVideo] = await db
+  .with(viewerReactions)
+  .select({
+    ...getTableColumns(videos),
+    user: { ...getTableColumns(users) },
+    viewerReaction:viewerReactions.type,
+  })
+  .from(videos)
+  .innerJoin(users, eq(videos.userId, users.id))
+  .leftJoin(viewerReactions, eq(videos.id, viewerReactions.videoId)) // viewerReactions only contains the reaction of the current user!
+  .where(eq(videos.id, input.id));
+```
+
+### Drizzle "Upsert"
+
+PostgreSQL bietet eine `ON CONFLICT` clause an (was soll passieren, wenn man einen Datensatz einfügen will, dessen Primary Key bereits existiert). Im Normalfall verwendet man das eben bei einem INSERT - und die Konfliktlösung ist dann zumeist ein UPDATE statt dessen zu machen (daher kommt auch der zusammengesetzte Name upsert).
+
+Mit drizzle kann man das mit den onConflictDo... Methoden machen - und die "Upsert"-Methode ist `onConflictDoUpate`. Die erwartet ein Objekt mit zwei Attributen - `target` - ein Array der Felder die bei Gleichheit als "Konflikt" betrachtet werden (zumeist die Felder, die den primary Key bilden) und `set` - ein Objekt mit den Feldnamen als Attribut und ihren jeweiligen Werten als Attributwert. Im folgenden ein Beispiel, wo der type einer Reaktion auf ein Video auf like geändert wird, falls bereits eine Reaktion für dieses Video vorliegt:
+
+```
+const [createdVideoReaction] = await db
+  .insert(videoReactions)
+  .values({ userId, videoId, type: 'like' })
+  .onConflictDoUpdate({
+    // needed, if the user disliked the video before - we could also change the delete above to delete every reaction of the user to the video
+    target: [videoReactions.userId, videoReactions.videoId],
+    set: {
+      type: 'like',
+    },
+  })
+```
 
 ## [ngrok](https://dashboard.ngrok.com)
 

@@ -62,6 +62,7 @@ export const POST = async (request: Request) => {
     }
     case 'video.asset.ready': {
       const data = payload.data as VideoAssetReadyWebhookEvent['data'];
+      console.log('payload.data', data);
       const playbackId = data.playback_ids?.[0].id;
       if (!data.upload_id) {
         return new Response('Missing upload ID', { status: 400 });
@@ -69,6 +70,13 @@ export const POST = async (request: Request) => {
       if (!playbackId) {
         return new Response('Missing playback ID', { status: 400 });
       }
+      const [existingVideo] = await db
+        .select()
+        .from(videos)
+        .where(eq(videos.muxUploadId, data.upload_id));
+      console.log('Database videoId', existingVideo?.id);
+      if (!existingVideo)
+        return new Response('Unknown Video ID', { status: 404 });
       const tempThumbnailUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg`;
       const tempPreviewUrl = `https://image.mux.com/${playbackId}/animated.gif`;
       const duration = data.duration ? Math.round(data.duration * 1000) : 0;
@@ -78,6 +86,14 @@ export const POST = async (request: Request) => {
       const [uploadedThumbnail, uploadedPreview] =
         await utapi.uploadFilesFromUrl([tempThumbnailUrl, tempPreviewUrl]);
 
+      console.log('data', {
+        thumb: uploadedThumbnail.data,
+        preview: uploadedPreview.data,
+      });
+      console.log('error', {
+        thumb: uploadedThumbnail.error,
+        preview: uploadedPreview.error,
+      });
       if (!uploadedThumbnail.data || !uploadedPreview.data) {
         console.log('Failed to upload thumbnail or preview');
         return new Response('Failed to upload thumbnail or preview', {

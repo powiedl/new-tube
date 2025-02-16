@@ -1,5 +1,11 @@
 import { db } from '@/db';
-import { users, videos, videoUpdateSchema } from '@/db/schema';
+import {
+  users,
+  videoReactions,
+  videos,
+  videoUpdateSchema,
+  videoViews,
+} from '@/db/schema';
 import { mux } from '@/lib/mux';
 import { workflow } from '@/lib/workflow';
 import {
@@ -8,7 +14,7 @@ import {
   protectedProcedure,
 } from '@/trpc/init';
 import { TRPCError } from '@trpc/server';
-import { and, eq, getTableColumns } from 'drizzle-orm';
+import { and, eq, getTableColumns, inArray } from 'drizzle-orm';
 import { UTApi } from 'uploadthing/server';
 import { z } from 'zod';
 
@@ -16,14 +22,52 @@ export const videosRouter = createTRPCRouter({
   getOne: baseProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
+      const { clerkUserId } = ctx;
+      let userId;
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(inArray(users.clerkId, clerkUserId ? [clerkUserId] : []));
+      if (user) {
+        userId = user.id;
+      }
+
+      const viewerReactions = db.$with('viewer_reactions').as(
+        db
+          .select({
+            videoId: videoReactions.videoId,
+            type: videoReactions.type,
+          })
+          .from(videoReactions)
+          .where(inArray(videoReactions.userId, userId ? [userId] : []))
+      );
       const [existingVideo] = await db
+        .with(viewerReactions)
         .select({
           ...getTableColumns(videos),
           user: { ...getTableColumns(users) },
+          viewCount: db.$count(videoViews, eq(videoViews.videoId, videos.id)), // TODO change to correct query
+          likeCount: db.$count(
+            videoReactions,
+            and(
+              eq(videoReactions.videoId, videos.id),
+              eq(videoReactions.type, 'like')
+            )
+          ),
+          dislikeCount: db.$count(
+            videoReactions,
+            and(
+              eq(videoReactions.videoId, videos.id),
+              eq(videoReactions.type, 'dislike')
+            )
+          ),
+          viewerReaction: viewerReactions.type,
         })
         .from(videos)
-        .where(eq(videos.id, input.id))
-        .innerJoin(users, eq(videos.userId, users.id));
+        .innerJoin(users, eq(videos.userId, users.id))
+        .leftJoin(viewerReactions, eq(videos.id, viewerReactions.videoId)) // viewerReactions only contains the reaction of the current user!
+        .where(eq(videos.id, input.id));
+      //.groupBy(videos.id, users.id, viewerReactions.type); // in my opinion this is not neccessary, because there can only be one viewerReaction for a particular user and video
 
       if (!existingVideo) throw new TRPCError({ code: 'NOT_FOUND' });
       return existingVideo;
@@ -150,7 +194,7 @@ export const videosRouter = createTRPCRouter({
 
     const upload = await mux.video.uploads.create({
       new_asset_settings: {
-        passthrough: userId,
+        passthrough: userId, // video.id would be better, but we don't have it right now, because we insert the record to the database afterwards
         playback_policy: ['public'],
         input: [
           {
