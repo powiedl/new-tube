@@ -166,7 +166,7 @@ Im Gegensatz dazu sind Relations nur in der Applikation vorhanden - sie spiegeln
 
 Weiterführende Details siehe die Dokumentation von Drizzle zum Thema [Relations](https://orm.drizzle.team/docs/relations) (ein Unterpunkt sind dort die Foreign Keys).
 
-#### Ein Relation-Objekt auf die gleiche Tabelle
+#### In einem Relation-Objekt mehrmals auf die gleiche Tabelle verweisen
 
 Damit man da den Spaltennamen bestimmen kann, muss man zwei Dinge machen. Man muss der Relation einen Namen geben:
 
@@ -202,6 +202,42 @@ export const userRelations = relations(users, ({ many }) => ({
 ```
 
 Damit erhalten die Spalten dann im `users` Modell den angegebenen Namen - eben `subscriptions` und `subscribers`.
+
+#### In einer Tabelle eine Referenz auf die gleiche Tabelle machen (rekursive Referenz), z.b. Parentbeziehungen
+
+Wenn man einfach nur ein `.references()` auf die gleiche Tabelle angibt, führt das zu einem Typescriptfehler. Die Lösung dafür ist entweder, der Referenzfunktion einen entsprechenden Rückgabewert zu geben (`AnyPgColumn`) oder den foreign key auf die eigene Tabelle als "Index"funktion anzugeben. Hier ein Beispiel für die Comments aus dem Programm:
+
+```
+export const comments = pgTable(
+  'comments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    videoId: uuid('video_id')
+      .references(() => videos.id, { onDelete: 'cascade' })
+      .notNull(),
+    parentId: uuid('parent_id'),
+    value: text('value').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => {
+    return [
+      foreignKey({
+        columns: [t.parentId],
+        foreignColumns: [t.id],
+        name: 'comments_parent_id_fkey',
+      }).onDelete('cascade'),
+    ];
+  }
+);
+```
+
+Darin wird ein foreignKey (diese Funktion muss man von `drizzle-orm/pg-core` importieren - für PostgreSQL Datenbanken) `comments_parent_id_fkey` definiert. Dieser besteht aus der Spalte `parentId` und der Fremdschlüssel ist die `id` (ebenfalls aus der comments Tabelle). Man speichert also immer den eventuell vorhanden direkten Parent ab - weil jeder Comment nur einen Parent, aber viele Childs haben kann.
+
+Mit dem onDelete legt man fest, dass beim Löschen eines Parent comments auch alle Child comments gelöscht werden sollen - eine alternative wäre es, die parentId der Child comments auf die parentId des gelöschten comments zu ändern (aber das wäre aufwändiger und es ist fraglich, ob die Kommentare zum darüberliegenden "passen" oder ob das nicht für mehr Verwirrung sorgen würde).
 
 ### Joins in Drizzle
 
