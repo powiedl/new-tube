@@ -16,6 +16,7 @@ import {
 } from '@/trpc/init';
 import { TRPCError } from '@trpc/server';
 import { and, eq, getTableColumns, inArray, isNotNull } from 'drizzle-orm';
+import { text } from 'stream/consumers';
 import { UTApi } from 'uploadthing/server';
 import { z } from 'zod';
 
@@ -132,6 +133,65 @@ export const videosRouter = createTRPCRouter({
         retries: 1,
       });
       return workflowRunId;
+    }),
+  revalidate: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const { id: userId } = ctx.user;
+
+      const [existingVideo] = await db
+        .select()
+        .from(videos)
+        .where(and(eq(videos.id, input.id), eq(videos.userId, userId)));
+
+      if (!existingVideo) return new TRPCError({ code: 'NOT_FOUND' });
+      if (!existingVideo.muxUploadId) {
+        throw new TRPCError({ code: 'BAD_REQUEST' });
+      }
+      const upload = await mux.video.uploads.retrieve(
+        existingVideo.muxUploadId
+      );
+      if (!upload || !upload.asset_id) {
+        throw new TRPCError({ code: 'BAD_REQUEST' });
+      }
+      const asset = await mux.video.assets.retrieve(upload.asset_id);
+      if (!asset) {
+        throw new TRPCError({ code: 'BAD_REQUEST' });
+      }
+      let muxTrackId = existingVideo.muxTrackId;
+      let muxTrackStatus = existingVideo.muxTrackStatus;
+      const duration = asset.duration ? Math.round(asset.duration * 1000) : 0;
+      if (asset?.tracks) {
+        const textTracks = asset.tracks.filter(
+          (t) => t.type === 'text' && t.language_code === 'en'
+        );
+        if (textTracks.length === 1) {
+          if (textTracks[0].id && textTracks[0].status) {
+            muxTrackId = textTracks[0].id;
+            muxTrackStatus = textTracks[0].status;
+          }
+        } else {
+          console.log(
+            `MUX asset '${asset.id}': No unique english transcription found (got ${textTracks.length} records, expected 1)`
+          );
+        }
+      } else {
+        console.log('No tracks found ...');
+      }
+
+      const [updatedVideo] = await db
+        .update(videos)
+        .set({
+          muxStatus: asset.status,
+          muxPlaybackId: asset.playback_ids?.[0].id,
+          muxAssetId: asset.id,
+          muxTrackId,
+          muxTrackStatus,
+          duration,
+        })
+        .where(and(eq(videos.id, input.id), eq(videos.userId, userId)))
+        .returning();
+      return updatedVideo;
     }),
   restoreThumbnail: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))

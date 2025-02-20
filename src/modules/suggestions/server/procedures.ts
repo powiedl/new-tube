@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { db } from '@/db';
 import { users, videoReactions, videos, videoViews } from '@/db/schema';
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
-import { eq, and, or, lt, desc, getTableColumns } from 'drizzle-orm';
+import { eq, and, or, lt, desc, getTableColumns, not } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 
 export const suggestionsRouter = createTRPCRouter({
@@ -16,8 +16,19 @@ export const suggestionsRouter = createTRPCRouter({
         limit: z.number().min(1).max(10),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { videoId, cursor, limit } = input;
+      const { clerkUserId } = ctx;
+      let userId = 'unknownUserId';
+      if (clerkUserId) {
+        const [user] = await db
+          .select()
+          .from(users)
+          .where(eq(users.clerkId, clerkUserId));
+        if (user) {
+          userId = user.id;
+        }
+      }
 
       const [existingVideo] = await db
         .select()
@@ -49,6 +60,11 @@ export const suggestionsRouter = createTRPCRouter({
         .innerJoin(users, eq(videos.userId, users.id))
         .where(
           and(
+            not(eq(videos.id, existingVideo.id)), // it is not the existing video
+            or(
+              eq(videos.visibility, 'public'), // the video is public
+              eq(videos.userId, userId) // or the video is a video from the current user
+            ),
             existingVideo.categoryId // a very simple suggestion algorithm: same category like the current video or (if this has no category)
               ? eq(videos.categoryId, existingVideo.categoryId)
               : undefined, // any other video
