@@ -2,39 +2,23 @@ import { z } from 'zod';
 import { db } from '@/db';
 import { users, videoReactions, videos, videoViews } from '@/db/schema';
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
-import { eq, and, or, lt, desc, getTableColumns, not } from 'drizzle-orm';
+import { eq, and, or, lt, desc, ilike, getTableColumns } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 
-export const suggestionsRouter = createTRPCRouter({
+export const searchRouter = createTRPCRouter({
   getMany: baseProcedure
     .input(
       z.object({
-        videoId: z.string().uuid(),
+        query: z.string().nullish(),
+        categoryId: z.string().uuid().nullish(),
         cursor: z
           .object({ id: z.string().uuid(), updatedAt: z.date() })
           .nullish(),
         limit: z.number().min(1).max(10),
       })
     )
-    .query(async ({ input, ctx }) => {
-      const { videoId, cursor, limit } = input;
-      const { clerkUserId } = ctx;
-      let userId = '10000000-0000-0000-0000-000000000001'; // syntactical correct uuid, which hopefully never gets assigned to a real user
-      if (clerkUserId) {
-        const [user] = await db
-          .select()
-          .from(users)
-          .where(eq(users.clerkId, clerkUserId));
-        if (user) {
-          userId = user.id;
-        }
-      }
-
-      const [existingVideo] = await db
-        .select()
-        .from(videos)
-        .where(eq(videos.id, videoId));
-      if (!existingVideo) throw new TRPCError({ code: 'NOT_FOUND' });
+    .query(async ({ input }) => {
+      const { cursor, limit, query, categoryId } = input;
 
       const data = await db
         .select({
@@ -60,14 +44,11 @@ export const suggestionsRouter = createTRPCRouter({
         .innerJoin(users, eq(videos.userId, users.id))
         .where(
           and(
-            not(eq(videos.id, existingVideo.id)), // it is not the existing video
             or(
-              eq(videos.visibility, 'public'), // the video is public
-              eq(videos.userId, userId) // or the video is a video from the current user
+              ilike(videos.title, `%${query}%`),
+              ilike(videos.description, `%${query}%`)
             ),
-            existingVideo.categoryId // a very simple suggestion algorithm: same category like the current video or (if this has no category)
-              ? eq(videos.categoryId, existingVideo.categoryId)
-              : undefined, // any other video
+            categoryId ? eq(videos.categoryId, categoryId) : undefined,
             cursor
               ? or(
                   lt(videos.updatedAt, cursor.updatedAt),

@@ -129,7 +129,7 @@ Man kann mit dem Package `drizzle-zod` automatisch zodSchemata für Tabellen, di
 
 ### Drizzle - Vergleichsoperatoren
 
-Drizzle kommt auch mit einer Menge Vergleichsoperatoren bzw. sollte man besser Vergleichsfunktionen sagen. Beispiele sind `eq` (prüft ob die beiden Parameter gleich sind), `inArray` (prüft ob das zweite Array im ersten enthalten ist).
+Drizzle kommt auch mit einer Menge Vergleichsoperatoren bzw. sollte man besser Vergleichsfunktionen sagen. Beispiele sind `eq` (prüft ob die beiden Parameter gleich sind), `inArray` (prüft ob das zweite Array im ersten enthalten ist). `ilike` prüft auf "Teilstrings", das Wildcardzeichen ist SQL typisch `%`. Das i steht für case insensitive, will man die Groß-/Kleinschreibung beachten lässt man einfach das führende i weg (also `like`).
 
 ### Beziehungen zwischen Tabellen
 
