@@ -333,6 +333,8 @@ const [existingVideo] = await db
   .where(eq(videos.id, input.id));
 ```
 
+Wenn man das Einbinden vergisst, bekommt man einen Fehler `relation "viewer_reactions" does not exist` (wobei der Relationsname der Parameter von $with bei der Definition ist). In dem Fall einfach bei der Query, wo man die CTE verwendet die Zeile `.with(Relationsname)` nach dem db ergänzen.
+
 ### Drizzle "Upsert"
 
 PostgreSQL bietet eine `ON CONFLICT` clause an (was soll passieren, wenn man einen Datensatz einfügen will, dessen Primary Key bereits existiert). Im Normalfall verwendet man das eben bei einem INSERT - und die Konfliktlösung ist dann zumeist ein UPDATE statt dessen zu machen (daher kommt auch der zusammengesetzte Name upsert).
