@@ -1129,3 +1129,7 @@ Unfortunatly Google Gemini offers no free tier for text to image creation. I've 
 ### useSearchParams
 
 Es wird empfohlen, eine Komponente, die `useSearchParams` verwendet, in einem `Suspense` zu wrappen - wenn man static rendering verwendet. um das herauszufinden, kann man den "gegenteiligen" Ansatz wählen - wann wird eine Komponente dynamisch gerendert. Das ist beispielsweise der Fall, wenn man in der Komponete (bzw. im File der Komponete) `export const dynamic = 'force-dynamic';` verwendet.
+
+### TODOs
+
+- VideoRowCard size compact ist falsch, da muss ich am Ende noch einmal nachschauen, was ich da falsch gemacht habe (es fehlt das Video)
