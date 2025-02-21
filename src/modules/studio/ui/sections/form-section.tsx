@@ -150,8 +150,8 @@ const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
     update.mutate(data);
     //console.log(data);
   };
-  // TODO: Change if deploying outside of VERCEL
-  const fullUrl = `${APP_URL || 'http://localhost:3000'}/videos/${videoId}`;
+
+  const fullUrl = `${APP_URL}/videos/${videoId}`;
   const onCopy = async () => {
     await navigator.clipboard.writeText(fullUrl); // copy fullUrl to clipboard
     setIsCopied(true);

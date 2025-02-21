@@ -23,8 +23,8 @@ function getQueryClient() {
 function getUrl() {
   const base = (() => {
     if (typeof window !== 'undefined') return '';
-    if (APP_URL) return `https://${APP_URL}`;
-    return 'http://localhost:3000';
+    // TODO: Modify in .env to production domain (NEXT_PUBLIC_APP_URL) - including protocol
+    return APP_URL;
   })();
   return `${base}/api/trpc`;
 }

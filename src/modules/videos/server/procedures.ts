@@ -16,7 +16,6 @@ import {
 } from '@/trpc/init';
 import { TRPCError } from '@trpc/server';
 import { and, eq, getTableColumns, inArray, isNotNull } from 'drizzle-orm';
-import { text } from 'stream/consumers';
 import { UTApi } from 'uploadthing/server';
 import { z } from 'zod';
 

@@ -39,6 +39,16 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
+## Allgemeiner Ansatz wie man eine APP_URL Konstante definiert, damit man nur eine Stelle hat, wo man die URL der App festlegen muss
+
+Wenn man die App auf Vercel deployed gibt es automatisch eine VERCEL_URL (diese beinhaltet allerdings **NICHT** das Protokoll). Daher muss man relativ kompliziert die vollständige URL bilden.
+
+Ein alternativer Ansatz für dieses Problem ist folgender:
+
+1. in .env.local definiert man eine NEXT*PUBLIC_APP_URL (wichtig ist das NEXT_PUBLIC* damit die Variable sowohl am Server als auch am Client zur Verfügung steht). Diese enthält die vollständige URL (lokal beispielsweise http://localhost:3000). Wenn man die App dann public deployed stetzt man manuell die Umgebungsvariable auf den richtigen Wert.
+2. An einer zentralen Stelle definiert man eine `constants.ts` und diese enthält u. a. diese Zeile: `export const APP_URL =
+process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';` (damit hat man eine APP_URL, die die vollständige URL enthält - im Beispiel hat man zusätzlich auch noch einen Fallback für die lokale Umgebung definiert). Diese Konstante kann man ab sofort überall verwenden (sowohl in Client als auch Serverkomponenten) - und sie enthält eben die vollständige URL.
+
 ## drizzle
 
 Drizzle ist ein ORM Package - ähnlich wie prisma. Es bietet aber die Möglichkeit neben den "üblichen" Modellbefehlen zur Manipulation der Daten in der Datenbank auch SQL ähnliche Befehle zu verwenden. Daher verwendet der Trainer in diesem Tutorial Drizzle.
@@ -473,6 +483,8 @@ Und dann letzten Endes die "Mischung". Dabei werden in der Server Komponente die
 
 #### Mischung - sowohl SERVER- als auch Clientkomponente
 
+Man kann der Suspense Komponente auch ein key Prop mitgeben. Wann immer sich der Wert des key Props ändert, löst dies einen neuen Request gegen den Server aus. Im untenstehenden Beispiel wird das nicht verwendet (weil das Beispiel zu simple ist). Im fertigen Projekt wird es bei der `SearchResults` Komponente verwendet.
+
 ```
 import { HydrateClient, trpc } from '@/trpc/server';
 import { PageClient } from './client';
@@ -613,11 +625,15 @@ interface CategoriesSectionProps {
   categoryId?: string;
 }
 
-export const CategoriesSection = ({ categoryId }: CategoriesSectionProps) => {
+// in der exportierten Komponente, die ja nur ein "Wrapper" ist, braucht man die einzelnen Teile der Props nicht wirklich, daher kann man da
+// schön die props als ein Objekt entgegennehmen (ohne dieses zu destructuren) und gespreaded an die eigentliche Komponente weiterreichen
+// Vorteil: Man muss nur einmal destructuren und vor allem - wenn sich im Laufe der Zeit die Props ändern muss man nur das Interface und die
+// eigentliche Komponente anpassen.
+export const CategoriesSection = (props: CategoriesSectionProps) => {
   return (
     <Suspense fallback={<p>Loading ...</p>}>
       <ErrorBoundary fallback={<p>Error ...</p>}>
-        <CategoriesSectionSuspense categoryId={categoryId} />
+        <CategoriesSectionSuspense {...props}} />
       </ErrorBoundary>
     </Suspense>
   );
@@ -1105,3 +1121,9 @@ The generation assumes, that the transcript is already available in the variable
 ## AI - OpenAI Alternative ([Imagine.Art](https://www.imagine.art/))
 
 Unfortunatly Google Gemini offers no free tier for text to image creation. I've searched the internet and finally I found an AI API that offers free text to image conversion, **Imagine art**. But there is another downside to this service - it expects the input as formData - and until now I'm not able to get Upstash Workflow to send the data as form Data (no matter what type of header I put in the request, it is always converted to `application/json`). That's why the generate thumbnail option is temporary disabled (I will activate it later , if I find a solution to send formData or if I find another text to image AI with a free tier).
+
+## Misc
+
+### useSearchParams
+
+Es wird empfohlen, eine Komponente, die `useSearchParams` verwendet, in einem `Suspense` zu wrappen - wenn man static rendering verwendet. um das herauszufinden, kann man den "gegenteiligen" Ansatz wählen - wann wird eine Komponente dynamisch gerendert. Das ist beispielsweise der Fall, wenn man in der Komponete (bzw. im File der Komponete) `export const dynamic = 'force-dynamic';` verwendet.
