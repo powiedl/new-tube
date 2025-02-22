@@ -9,6 +9,7 @@ interface InfiniteScrollProps {
   className?: string;
   isFetchingNextPage: boolean;
   fetchNextPage: () => void;
+  showReachedTheEndInformation?: boolean;
 }
 
 export const InfiniteScroll = ({
@@ -17,6 +18,7 @@ export const InfiniteScroll = ({
   isFetchingNextPage,
   fetchNextPage,
   className = '',
+  showReachedTheEndInformation = true,
 }: InfiniteScrollProps) => {
   const { targetRef, isIntersecting } = useIntersectionObserver({
     threshold: 0.5,
@@ -45,9 +47,11 @@ export const InfiniteScroll = ({
           {isFetchingNextPage ? 'Loading ...' : 'Load more'}
         </Button>
       ) : (
-        <p className='text-xs text-muted-foreground'>
-          You have reached the end of the list
-        </p>
+        showReachedTheEndInformation && (
+          <p className='text-xs text-muted-foreground'>
+            You have reached the end of the list
+          </p>
+        )
       )}
     </div>
   );

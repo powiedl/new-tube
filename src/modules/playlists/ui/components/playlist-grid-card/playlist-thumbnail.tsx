@@ -42,7 +42,7 @@ export const PlaylistThumbnail = ({
           <Image
             src={imageUrl || THUMBNAIL_FALLBACK}
             alt={title}
-            className='w-full h-full obbject-cover'
+            className='w-full h-full object-cover'
             fill
           />
 

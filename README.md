@@ -354,6 +354,35 @@ const [createdVideoReaction] = await db
   })
 ```
 
+### Drizzle native SQL
+
+Es gibt Situationen, wo man mit den Funktionen/Methoden von Drizzle nicht mehr das auslangen findet. In diesen Fällen kann man direkt auf SQL zurückgreifen. Dafür gibt es die generic Funktion `sql`. Man sollte das Ergebnis des SQL-Statements entsprechend typen, weil Typescript keine Möglichkeit hat, festzustellen, was der Ergebnistyp sein wird und es daher nur als any typen kann.
+
+Hier ein Beispiel aus der playlist procedure getManyForVideo. Dabei wird das Attribut containsVideo auf true gesetzt, wenn ein bestimmtes Video in der aktuell zu landenden Playlist vorhanden ist.
+
+```
+const data = await db
+  .select({
+    ...getTableColumns(playlists),
+    videoCount: db.$count(
+      playlistVideos,
+      eq(playlists.id, playlistVideos.playlistId)
+    ),
+    containsVideo: videoId
+      ? sql<boolean>`(
+      SELECT EXISTS (
+        SELECT 1
+        FROM ${playlistVideos} pv
+        WHERE pv.playlist_id = ${playlists.id} AND pv.video_id = ${videoId}
+      )
+    )`
+      : sql<boolean>`false`,
+  })
+  .from(playlists)
+```
+
+Da man innerhalb von sql``"reines" SQL schreibt, müssen die angegebenen Spaltennamen mit jenen in der Datenbank übereinstimmen - nicht mit jenen im Modell (wir haben beispielsweise Camelcase durch _kleinbuchstabe für die Datenbanke umgewandelt - in der Definition des Modells ist der Attributname der Name im Modell und der String in der Klammer des Typs der Spaltenname in der Datenbank - z. b.`playlistId`im Modell wird zu`playlist_id`in der Tabelle - aufgrund dieser Zeile in der Modelldefinition:`playlistId: uuid('playlist_id')`).
+
 ## [ngrok](https://dashboard.ngrok.com)
 
 Dabei handelt es sich um ein verteiltes Reverse Proxy System (damit ein Service aus dem Internet den Dienst am lokalen eigenen Computer verwenden kann). Ein Vorteil von ngrok gegenüber anderen vergleichbaren Lösung, ist die Tatsache, dass man eine statische Domäne dafür bekommt, d. h. ein unerveränderlicher Endpunkt, mit dem das Internet die lokal laufende Instanz am eigenen Computer erreichen kann.
