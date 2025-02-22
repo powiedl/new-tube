@@ -40,22 +40,28 @@ export const studioRouter = createTRPCRouter({
       const { id: userId } = ctx.user;
 
       const data = await db
-        // .select()
         .select({
           ...getTableColumns(videos),
           viewCount: db.$count(videoViews, eq(videoViews.videoId, videos.id)),
-          commentCount: db.$count(comments, eq(comments.videoId, videos.id)),
           likeCount: db.$count(
             videoReactions,
             and(
-              eq(videoReactions.type, 'like'),
-              eq(videoReactions.videoId, videos.id)
+              eq(videoReactions.videoId, videos.id),
+              eq(videoReactions.type, 'like')
             )
           ),
+          dislikeCount: db.$count(
+            videoReactions,
+            and(
+              eq(videoReactions.videoId, videos.id),
+              eq(videoReactions.type, 'dislike')
+            )
+          ),
+
           user: users,
         })
         .from(videos)
-        .innerJoin(users, eq(videos.userId, userId))
+        .innerJoin(users, eq(videos.userId, users.id))
         .where(
           and(
             eq(videos.userId, userId),
@@ -85,6 +91,7 @@ export const studioRouter = createTRPCRouter({
         ? { id: lastItem.id, updatedAt: lastItem.updatedAt }
         : null;
 
+      console.log('studio,procedures,getMany,items', items);
       return { items, nextCursor };
     }),
 });
