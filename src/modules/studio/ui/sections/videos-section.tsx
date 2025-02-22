@@ -34,6 +34,9 @@ const VideosSectionSuspense = () => {
     { limit: DEFAULT_LIMIT },
     { getNextPageParam: (lastPage) => lastPage.nextCursor }
   );
+  console.log(
+    videos.pages.flatMap((p) => p.items).map((v) => JSON.stringify(v))
+  );
   return (
     <div>
       <div className='border-y'>
@@ -93,12 +96,14 @@ const VideosSectionSuspense = () => {
                     <TableCell className='text-sm truncate'>
                       {formatDate(video.createdAt, 'dd MMM yyyy')}
                     </TableCell>
-                    <TableCell className='text-right text-sm'>views</TableCell>
                     <TableCell className='text-right text-sm'>
-                      comments
+                      {video.viewCount}
+                    </TableCell>
+                    <TableCell className='text-right text-sm'>
+                      {video.commentCount}
                     </TableCell>
                     <TableCell className='text-right text-sm pr-6'>
-                      likes
+                      {video.likeCount}
                     </TableCell>
                   </TableRow>
                 </Link>
