@@ -91,7 +91,6 @@ export const studioRouter = createTRPCRouter({
         ? { id: lastItem.id, updatedAt: lastItem.updatedAt }
         : null;
 
-      console.log('studio,procedures,getMany,items', items);
       return { items, nextCursor };
     }),
 });

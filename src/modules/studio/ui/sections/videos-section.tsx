@@ -34,9 +34,6 @@ const VideosSectionSuspense = () => {
     { limit: DEFAULT_LIMIT },
     { getNextPageParam: (lastPage) => lastPage.nextCursor }
   );
-  console.log(
-    videos.pages.flatMap((p) => p.items).map((v) => JSON.stringify(v))
-  );
   return (
     <div>
       <div className='border-y'>
