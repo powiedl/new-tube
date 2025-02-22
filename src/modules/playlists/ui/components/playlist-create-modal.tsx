@@ -4,7 +4,6 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -14,51 +13,44 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 
-interface ThumbnailGenerateModalProps {
-  videoId: string;
+interface PlaylistCreateModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 const formSchema = z.object({
-  prompt: z
-    .string()
-    .min(10, 'Please provide at least a prompt with 10 characters'),
+  name: z.string().min(1, 'Please provide at name for the playlist'),
 });
-export const ThumbnailGenerateModal = ({
-  videoId,
+export const PlaylistCreateModal = ({
   open,
   onOpenChange,
-}: ThumbnailGenerateModalProps) => {
+}: PlaylistCreateModalProps) => {
   const utils = trpc.useUtils();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      prompt: '', //'A sunset at the sea. At the horizon there should be a steamship and on the left side of the picture there should be a city with a harbour.'
+      name: '',
     },
   });
-  const generateThumbnail = trpc.videos.generateThumbnail.useMutation({
+  const create = trpc.playlists.create.useMutation({
     onSuccess: () => {
-      toast.success('Background job started', {
-        description: 'This may take some time ...',
-      });
+      utils.playlists.getMany.invalidate();
+      toast.success('Playlist created');
+      form.reset();
+      onOpenChange(false);
     },
     onError: () => {
       toast.error('Something went wrong');
     },
   });
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    generateThumbnail.mutate({
-      prompt: values.prompt,
-      id: videoId,
-    });
-    onOpenChange(false);
-    utils.studio.getOne.invalidate({ id: videoId });
+    create.mutate(values);
   };
   return (
     <ResponsiveModal
-      title='Generate a thumbnail'
+      title='Create playlist'
       open={open}
       onOpenChange={onOpenChange}
     >
@@ -69,26 +61,20 @@ export const ThumbnailGenerateModal = ({
         >
           <FormField
             control={form.control}
-            name='prompt'
+            name='name'
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Prompt</FormLabel>
                 <FormControl>
-                  <Textarea
-                    {...field}
-                    className='resize-none'
-                    rows={10}
-                    cols={5}
-                    placeholder='Add a prompt to describe the thumbnail, which should be generated. At the moment I am not able to send formData from Upstash to imagine.art, so the generate Thumbnail is temporary unavailable'
-                  />
+                  <Input {...field} placeholder='name of the new playlist' />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
           <div className='flex justify-end'>
-            <Button disabled={generateThumbnail.isPending} type='submit'>
-              Generate Thumbnail
+            <Button disabled={create.isPending} type='submit'>
+              Create playlist
             </Button>
           </div>
         </form>

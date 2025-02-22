@@ -1130,6 +1130,35 @@ Unfortunatly Google Gemini offers no free tier for text to image creation. I've 
 
 Es wird empfohlen, eine Komponente, die `useSearchParams` verwendet, in einem `Suspense` zu wrappen - wenn man static rendering verwendet. um das herauszufinden, kann man den "gegenteiligen" Ansatz wählen - wann wird eine Komponente dynamisch gerendert. Das ist beispielsweise der Fall, wenn man in der Komponete (bzw. im File der Komponete) `export const dynamic = 'force-dynamic';` verwendet.
 
+### Stacked Grid Cards
+
+Hier ist ein schönes Beispiel wie man gestapelte Karten simulieren kann. Dieser Event ist sehr gut geeignet, wenn man darstellen will, dass etwas aus mehreren (gleichen) Objekten besteht. Und man ebenfalls mehrere dieser "Etwas" darstellen will. In diesem Projekt wird es für die Übersicht über die Playlists verwendet. "Etwas" sind dabei die Playlists (und davon kann ein User eben mehrere haben). Und die "mehreren gleichen" Objekte sind die einzelnen Videos in einer Playlist.
+
+```
+<div className={cn('relative p5-3 group', className)}>
+  {/* Stack effect layers */}
+  <div className='relative'>
+    {/* background layers */}
+    <div className='absolute -top-3 left-1/2 -translate-x-1/2 w-[97%] overflow-hidden rounded-xl bg-black/20 aspect-video' />
+    <div className='absolute -top-1.5 left-1/2 -translate-x-1/2 w-[98.5%] overflow-hidden rounded-xl bg-black/25 aspect-video' />
+    {/* main image */}
+    <div className='relative overflow-hidden w-full rounded-xl aspect-video'>
+      <div>Das ist der eigentliche Inhalt - beispielsweise eine grafische Darstellung eines Videos</div>
+
+      {/* Hover overlay */}
+      <div className='absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center'>
+        <div className='flex items-center gap-x-2'>
+          <span className='text-white'>Hover-Inhalt #1</span>
+          <span className='text-white font-medium'>Hover-Inhalt #2</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+In diesem Beispiel gibt es zusätzlich noch einen Hover Effekt, wenn man über das gesamte Element (die Gruppe) hovered. Das ein- und ausblenden wird dabei mittels opacity erreicht (opacity-0 ==> unsichtbar, bei hover auf die Gruppe wird es zu opacity-100 ==> vollständig sichtbar).
+
 ### TODOs
 
 - VideoRowCard size compact ist falsch, da muss ich am Ende noch einmal nachschauen, was ich da falsch gemacht habe (es fehlt das Video)
