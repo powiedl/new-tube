@@ -10,6 +10,54 @@ const f = createUploadthing();
 
 // FileRouter for your app, can contain multiple FileRoutes
 export const ourFileRouter = {
+  bannerUploader: f({
+    image: {
+      maxFileSize: '4MB',
+      maxFileCount: 1,
+    },
+  })
+    // Set permissions and file types for this FileRoute
+    .middleware(async () => {
+      // This code runs on your server before upload
+      const { userId: clerkUserId } = await auth();
+
+      // If you throw, the user will not be able to upload
+      if (!clerkUserId) throw new UploadThingError('Unauthorized');
+
+      const [existingUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.clerkId, clerkUserId));
+      if (!existingUser) throw new UploadThingError('Unauthorized');
+
+      if (existingUser.bannerKey) {
+        const utapi = new UTApi();
+
+        // if the video already contains an uploaded thumbnail delete this thumbnail from uploadthing
+        await utapi.deleteFiles(existingUser.bannerKey);
+
+        //and clear the information about the thumbnail in the database
+        await db
+          .update(users)
+          .set({ bannerKey: null, bannerUrl: null })
+          .where(and(eq(users.id, existingUser.id)));
+      }
+      // Whatever is returned here is accessible in onUploadComplete as `metadata`
+      return { userId: existingUser.id };
+    })
+    .onUploadComplete(async ({ metadata, file }) => {
+      await db
+        .update(users)
+        .set({ bannerUrl: file.url, bannerKey: file.key })
+        .where(and(eq(users.id, metadata.userId)));
+      // This code RUNS ON YOUR SERVER after upload
+      console.log('Upload complete for userId:', metadata.userId);
+
+      console.log('file url', file.url);
+
+      // !!! Whatever is returned here is sent to the clientside `onClientUploadComplete` callback
+      return { uploadedBy: metadata.userId };
+    }),
   thumbnailUploader: f({
     image: {
       maxFileSize: '2MB',
