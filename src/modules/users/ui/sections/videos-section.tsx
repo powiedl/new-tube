@@ -9,30 +9,30 @@ import { trpc } from '@/trpc/client';
 import { Suspense } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 
-interface HomeVideosSectionProps {
-  categoryId?: string;
+interface VideosSectionProps {
+  userId: string;
 }
-export const HomeVideosSection = (props: HomeVideosSectionProps) => {
+export const VideosSection = (props: VideosSectionProps) => {
   return (
-    <Suspense key={props.categoryId} fallback={<HomeVideosSectionSkeleton />}>
+    <Suspense fallback={<VideosSectionSkeleton />}>
       <ErrorBoundary fallback={<p>error</p>}>
-        <HomeVideosSectionSuspense {...props} />
+        <VideosSectionSuspense {...props} />
       </ErrorBoundary>
     </Suspense>
   );
 };
 
-const HomeVideosSectionSuspense = ({ categoryId }: HomeVideosSectionProps) => {
+const VideosSectionSuspense = ({ userId }: VideosSectionProps) => {
   const [videos, query] = trpc.videos.getMany.useSuspenseInfiniteQuery(
     {
-      categoryId,
+      userId,
       limit: DEFAULT_LIMIT,
     },
     { getNextPageParam: (lastPage) => lastPage.nextCursor }
   );
   return (
     <div>
-      <div className='gap-4 gap-y-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 [@media(min-width:1920px)]:grid-cols-5 [@media(min-width:2200px)]:grid-cols-6'>
+      <div className='gap-4 gap-y-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 [@media(min-width:1920px)]:grid-cols-4 [@media(min-width:2200px)]:grid-cols-4'>
         {videos.pages
           .flatMap((page) => page.items)
           .map((video) => (
@@ -48,9 +48,9 @@ const HomeVideosSectionSuspense = ({ categoryId }: HomeVideosSectionProps) => {
   );
 };
 
-const HomeVideosSectionSkeleton = () => {
+const VideosSectionSkeleton = () => {
   return (
-    <div className='gap-4 gap-y-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 [@media(min-width:1920px)]:grid-cols-5 [@media(min-width:2200px)]:grid-cols-6'>
+    <div className='gap-4 gap-y-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 [@media(min-width:1920px)]:grid-cols-4 [@media(min-width:2200px)]:grid-cols-4'>
       {Array.from({ length: 7 }).map((_, index) => (
         <VideoGridCardSkeleton key={index} />
       ))}

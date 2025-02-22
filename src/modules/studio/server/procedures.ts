@@ -50,6 +50,7 @@ export const studioRouter = createTRPCRouter({
               eq(videoReactions.type, 'like')
             )
           ),
+          commentCount: db.$count(comments, eq(comments.videoId, videos.id)),
           dislikeCount: db.$count(
             videoReactions,
             and(

@@ -1188,6 +1188,15 @@ Hier ist ein schönes Beispiel wie man gestapelte Karten simulieren kann. Dieser
 
 In diesem Beispiel gibt es zusätzlich noch einen Hover Effekt, wenn man über das gesamte Element (die Gruppe) hovered. Das ein- und ausblenden wird dabei mittels opacity erreicht (opacity-0 ==> unsichtbar, bei hover auf die Gruppe wird es zu opacity-100 ==> vollständig sichtbar).
 
+### Eine Page mit einer API Route "faken"
+
+Man kann im normalen Bereich, wo man pages anlegt, auch API-Routen anlegen. Für NextJS ist das prinzipiell egal. Eine Page wird gerendert, wenn eine page.tsx im jeweiligen Verzeichnis vorhanden ist, ein API-Call wird gemacht, wenn eine route.ts vorhanden ist. Damit es sich wirklich wie eine Page anfühlt, müssen zwei Voraussetzungen bei der Route erfüllt sein:
+
+1. es muss (auch) eine GET Funktion existieren (weil der Browser immer GET Requests macht).
+2. Die GET Routine muss in jedem Fall ein redirect returnen.
+
+Das heißt die Idee ist eigentlich, dass man mit der API-Route vorgelagert irgendetwas "berechnet", was man dann zum weiterleiten verwendet. Im Beispiel von `/users/current` wird die API-Route verwendet um aus der clerkId (nur die kann man mit `await auth()` ermitteln über einen Datenbankrequest die Datenbank-UserId herauszufinden, damit man dann zu `/users/{db.userId}` redirecten kann (siehe `/app/(home)/users/current/route.ts`).
+
 ### TODOs
 
 - VideoRowCard size compact ist falsch, da muss ich am Ende noch einmal nachschauen, was ich da falsch gemacht habe (es fehlt das Video)
