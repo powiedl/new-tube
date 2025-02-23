@@ -4,7 +4,7 @@ import { serve } from '@upstash/workflow/nextjs';
 import { and, eq } from 'drizzle-orm';
 import {
   genAI,
-  GEMINI_BACKUP_MODEL,
+  //  GEMINI_BACKUP_MODEL,
   GEMINI_PREFERED_MODEL,
 } from '@/lib/gemini';
 

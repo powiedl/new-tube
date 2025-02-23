@@ -2,7 +2,6 @@ import { cn } from '@/lib/utils';
 import { UserGetOneOutput } from '../../types';
 import { useAuth, useClerk } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
-import { Edit2Icon } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { UserAvatar } from '@/components/user-avatar';
 import Link from 'next/link';

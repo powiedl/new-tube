@@ -1241,3 +1241,46 @@ Der Auslöser ist, dass MUX für jedes Video jede Stunde ein video.asset.ready a
 Ich habe jetzt begonnen, das zu "umgehen". Im Moment kontrolliere ich, ob das betroffene Video bereits einen previewKey oder einen thumbnailKey gespeichert hat. Die Idee ist, dass ich, wenn es das bereits gespeichert hat, dass ich keinen Upload der Daten von MUX zu Uploadthing mache - weil ich ja gar nicht will, dass später MUX diese Dinge verändern kann (außer bei Restore Thumbnail - das muss ich extra Testen, wenn das "Verhindern" klappt).
 
 Außerdem ist mir dabei aufgefallen, dass die Preview und der Thumbnail nicht gelöscht werden, wenn das Video auf MUX gelöscht wird. Ich habe den entsprechenden Webhook video.asset.deleted jetzt so erweitert, dass versucht wird, diese Dinge auf Uploadthing zu löschen, wenn sie vorhanden sind. Wenn das erfolgreich war (oder es für das betreffende Video nichts auf Uploadthing gab) wird das Video in der Datenbank gelöscht. Wenn es nicht erfolgreich war, werden alle MUX-Felder gelöscht (nur muxStatus wird auf deleted gesetzt). Sinnvollerweise muss ich dann noch eine Möglichkeit schaffen, dass der User diese Videos manuell löschen kann (ich weiß noch nicht, wie ich da mit Uploadthing umgehe). Und eventuell muss man beim Suchen von Videos immer auf muxStatus !== 'deleted' einschränken. Das schaue ich mir dann an, wenn es soweit ist.
+
+Ich habe die Behandlung von `video.asset.ready` ziemlich stark umgeschrieben. Ich prüfe, ob in der Datenbank für das Video bereits ein Thumbnail oder ein Preview vorhanden ist. Wenn ja, ignoriere ich diese Datei bei diesem Ereignis (weil von MUX nix "besseres" nachkommen kann). Wenn eines der beiden nicht existiert, wird es (wie bisher) zu Uploadthing hochgeladen. Das scheint sehr gut zu funktionieren - ich sehe im Moment zumindest keine "Geisteruploads" zu Uploadthing.
+
+Wenn ein anderes Thumbnail hochgeladen wird wird das alte Thumbnail in Uploadthing gelöscht (das hat die ursprüngliche Version schon so gemacht). Wenn man dann wieder das "MUX" Thumbnail restored, wird die geänderte Version gelöscht und das Thumbnail von MUX verwendet (auch das hat sich nicht verändert).
+
+Bei der ganzen Testerei ist mir aber noch etwas anderes aufgefallen:
+
+#### Änderungen im Hintergrund während man im Bearbeiten eines Videos ist gehen verloren
+
+Scheinbar aktualisiert sich die Bearbeiten Maske nicht, wenn im Hintergrund Daten für dieses Video geändert werden. Das ist vermutlich "fast" immer gut. Ein Fall, wo ich das als störend empfinde ist, wenn man den Titel oder die Beschreibung mittels AI generiert hat (kommt das Ergebnis dieser Generierung nicht zurück in das Formular). Wenn man dann parallel etwas anderes ändert (z. b. die Sichtbarkeit des Videos und das dann speichert überschreibt man die zwischenzeitlich generierten Daten).
+
+Ich weiß (noch) nicht, wie ich den User davon in Kenntnis setzen kann, dass er bei einem Speichern Daten in der Datenbank überschreibt. Und es sollte ebenfalls die Möglichkeit geben geänderte Daten aus der Datenbank zu übernehmen (so ähnlich wie das Revalidate - das ja eigentlich für die Abfrage gegen MUX gedacht ist).
+
+#### ErrorBoundary fallback Komponente
+
+Bis zum Schluss hat Antonio keine fallback Komponente für die ErrorBoundary erstellt. Darum habe ich selbst eine "entwickelt".
+
+```
+import { AlertTriangleIcon } from 'lucide-react';
+import { Button } from './ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+
+const ErrorFallback = () => {
+  return (
+    <Card className='py-4 sm:py-6 md:py-8 lg:py-12 bg-destructive'>
+      <CardHeader className='flex items-center mb-2 lg:mb-4'>
+        <CardTitle className='flex gap-x-4'>
+          <AlertTriangleIcon className='size-6' />
+          <h1 className='text-base sm:text-base md:text-lg lg:text-2xl font-semibold'>
+            An error occured
+          </h1>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className='text-sm md:text-base lg:text-lg flex flex-col justify-center items-center'>
+        <p className='mb-4'>An error occured. Please try again later.</p>
+        <Button onClick={() => window.location.reload()}>Reload page</Button>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default ErrorFallback;
+```

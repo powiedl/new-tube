@@ -13,6 +13,7 @@ import {
 } from '@/modules/videos/ui/components/video-grid-card';
 import { DEFAULT_LIMIT } from '@/constants';
 import { InfiniteScroll } from '@/components/infinite-scroll';
+import ErrorFallback from '@/components/error-fallback';
 
 interface ResultsSectionProps {
   query?: string;
@@ -42,7 +43,7 @@ export const ResultsSection = ({ query, categoryId }: ResultsSectionProps) => {
       key={`${query}-${categoryId}`}
       fallback={<ResultsSectionSkeleton />}
     >
-      <ErrorBoundary fallback={<p>Error ...</p>}>
+      <ErrorBoundary fallback={<ErrorFallback />}>
         <ResultsSectionSuspense query={query} categoryId={categoryId} />
       </ErrorBoundary>
     </Suspense>

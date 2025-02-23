@@ -19,11 +19,12 @@ import { snakeCaseToTitle } from '@/lib/utils';
 import { formatDate } from 'date-fns';
 import { GlobeIcon, LockIcon } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import ErrorFallback from '@/components/error-fallback';
 
 export const VideosSection = () => {
   return (
     <Suspense fallback={<VideosSectionSkeleton />}>
-      <ErrorBoundary fallback={<p>Error ...</p>}>
+      <ErrorBoundary fallback={<ErrorFallback />}>
         <VideosSectionSuspense />
       </ErrorBoundary>
     </Suspense>

@@ -13,6 +13,7 @@ import {
 import { InfiniteScroll } from '@/components/infinite-scroll';
 import { Suspense } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
+import ErrorFallback from '@/components/error-fallback';
 
 interface SuggestionsSectionProps {
   videoId: string;
@@ -41,7 +42,7 @@ export const SuggestionsSection = ({
 }: SuggestionsSectionProps) => {
   return (
     <Suspense fallback={<SuggestionsSectionSkeleton />}>
-      <ErrorBoundary fallback={<p>Error</p>}>
+      <ErrorBoundary fallback={<ErrorFallback />}>
         <SuggestionsSectionSuspense videoId={videoId} isManual={isManual} />
       </ErrorBoundary>
     </Suspense>

@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { SubscriptionButton } from '@/modules/subscriptions/ui/components/subscription-button';
 import { UserInfo } from '@/modules/users/ui/components/user-info';
 import { useSubscription } from '@/modules/subscriptions/hooks/use-subscriptions';
-import { initCustomTraceSubscriber } from 'next/dist/build/swc/generated-native';
 
 interface VideoOwnerProps {
   user: VideoGetOneOutput['user'];

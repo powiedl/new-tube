@@ -16,7 +16,6 @@ import {
   FormItem,
   FormMessage,
 } from '@/components/ui/form';
-import { CommentsSection } from '@/modules/videos/ui/section/comments-section';
 
 interface CommentFormProps {
   videoId: string;

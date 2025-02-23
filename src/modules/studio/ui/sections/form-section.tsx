@@ -54,6 +54,7 @@ import { THUMBNAIL_FALLBACK } from '@/modules/videos/constants';
 import { ThumbnailUploadModal } from '../components/thumbnail-upload-modal';
 import { ThumbnailGenerateModal } from '../components/thumbnail-generate-modal';
 import { APP_URL } from '@/constants';
+import ErrorFallback from '@/components/error-fallback';
 
 interface FormSectionProps {
   videoId: string;
@@ -62,7 +63,7 @@ interface FormSectionProps {
 export const FormSection = ({ videoId }: FormSectionProps) => {
   return (
     <Suspense fallback={<FormSectionSkeleton />}>
-      <ErrorBoundary fallback={<p>Error</p>}>
+      <ErrorBoundary fallback={<ErrorFallback />}>
         <FormSectionSuspense videoId={videoId} />
       </ErrorBoundary>
     </Suspense>
@@ -95,7 +96,9 @@ const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
       utils.studio.getMany.invalidate();
       utils.studio.getOne.invalidate({ id: videoId });
       toast.success('Video revalidated');
-      //router.push('/studio');
+      //router.push(`/studio/videos/${videoId}`);
+      //router.refresh();
+      window.location.reload();
     },
     onError: () => {
       toast.error('Something went wrong');

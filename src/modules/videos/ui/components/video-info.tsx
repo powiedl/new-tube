@@ -29,11 +29,11 @@ export const VideoInfo = ({ data, onRemove }: VideoInfoProps) => {
       notation: 'compact',
     }).format(data.viewCount);
   }, [data.viewCount]);
-  const compactLikes = useMemo(() => {
-    return Intl.NumberFormat('en', {
-      notation: 'compact',
-    }).format(data.likeCount);
-  }, [data.likeCount]);
+  // const compactLikes = useMemo(() => {
+  //   return Intl.NumberFormat('en', {
+  //     notation: 'compact',
+  //   }).format(data.likeCount);
+  // }, [data.likeCount]);
   const compactDate = useMemo(() => {
     return formatDistanceToNow(data.createdAt, { addSuffix: true });
   }, [data.createdAt]);

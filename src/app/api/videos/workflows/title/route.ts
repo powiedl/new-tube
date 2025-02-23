@@ -4,7 +4,7 @@ import { serve } from '@upstash/workflow/nextjs';
 import { and, eq } from 'drizzle-orm';
 import {
   genAI,
-  GEMINI_BACKUP_MODEL,
+  //  GEMINI_BACKUP_MODEL,
   GEMINI_PREFERED_MODEL,
 } from '@/lib/gemini';
 
@@ -20,13 +20,6 @@ const TITLE_PROMPT = `Your task is to generate an SEO-focused title for a YouTub
 - Use action-oriented phrasing or clear value propositions where applicable.
 - Ensure the title is 3-8 words long and no more than 100 characters.
 - ONLY return the title as plain text. Do not add quotes or any additional formatting.
-The transcript is:`;
-const DESCRIPTION_PROMPT = `Your task is to summarize the transcript of a video. Please follow these guidelines:
-- Be brief. Condense the content into a summary that captures the key points and main ideas without losing important details.
-- Avoid jargon or overly complex language unless necessary for the context.
-- Focus on the most critical information, ignoring filler, repetitive statements, or irrelevant tangents.
-- ONLY return the summary, no other text, annotations, or comments.
-- Aim for a summary that is 3-5 sentences long and no more than 200 characters.
 The transcript is:`;
 
 export const { POST } = serve(async (context) => {

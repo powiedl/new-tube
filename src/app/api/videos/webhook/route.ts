@@ -11,6 +11,7 @@ import { mux } from '@/lib/mux';
 import { UTApi } from 'uploadthing/server';
 import { db } from '@/db';
 import { videos } from '@/db/schema';
+import { UploadFileResult } from 'uploadthing/types';
 const SIGNING_SECRET = process.env.MUX_WEBHOOK_SECRET!;
 const UPLOADTHING_URL = process.env.UPLOADTHING_URL!;
 
@@ -78,41 +79,50 @@ export const POST = async (request: Request) => {
       console.log('Database videoId', existingVideo?.id);
       if (!existingVideo)
         return new Response('Unknown Video ID', { status: 404 });
+      let uploadedThumbnail: UploadFileResult | null = null;
+      let uploadedPreview: UploadFileResult | null = null;
+      const utapi = new UTApi();
       if (existingVideo.previewKey) {
         console.log(
           `  ES IST BEREITS EIN PREVIEW IN DER DATENBANK GESPEICHERT (${existingVideo.previewKey})`
         );
+      } else {
+        [uploadedThumbnail] = await utapi.uploadFilesFromUrl([
+          `https://image.mux.com/${playbackId}/thumbnail.jpg`,
+        ]);
       }
       if (existingVideo.thumbnailKey) {
         console.log(
           `  ES IST BEREITS EIN THUMBNAIL IN DER DATENBANK GESPEICHERT (${existingVideo.thumbnailKey})`
         );
+      } else {
+        [uploadedPreview] = await utapi.uploadFilesFromUrl([
+          `https://image.mux.com/${playbackId}/animated.gif`,
+        ]);
       }
-      const tempThumbnailUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg`;
-      const tempPreviewUrl = `https://image.mux.com/${playbackId}/animated.gif`;
       const duration = data.duration ? Math.round(data.duration * 1000) : 0;
 
-      console.log('  temp Urls:', { tempThumbnailUrl, tempPreviewUrl });
-      const utapi = new UTApi();
-      const [uploadedThumbnail, uploadedPreview] =
-        await utapi.uploadFilesFromUrl([tempThumbnailUrl, tempPreviewUrl]);
-
-      console.log('data', {
-        thumb: uploadedThumbnail.data,
-        preview: uploadedPreview.data,
-      });
-      console.log('error', {
-        thumb: uploadedThumbnail.error,
-        preview: uploadedPreview.error,
-      });
-      if (!uploadedThumbnail.data || !uploadedPreview.data) {
+      if (
+        (uploadedThumbnail && !uploadedThumbnail.data) ||
+        (uploadedPreview && !uploadedPreview.data)
+      ) {
         console.log('Failed to upload thumbnail or preview');
         return new Response('Failed to upload thumbnail or preview', {
           status: 500,
         });
       }
-      const { key: thumbnailKey, url: thumbnailUrl } = uploadedThumbnail.data;
-      const { key: previewKey, url: previewUrl } = uploadedPreview.data;
+      const thumbnailKey =
+        uploadedThumbnail?.data?.key || existingVideo.thumbnailKey;
+      const thumbnailUrl =
+        uploadedThumbnail?.data?.url || existingVideo.thumbnailUrl;
+      const previewKey = uploadedPreview?.data?.key || existingVideo.previewKey;
+      const previewUrl = uploadedPreview?.data?.url || existingVideo.previewUrl;
+      console.log('Data for database:', {
+        thumbnailKey,
+        thumbnailUrl,
+        previewKey,
+        previewUrl,
+      });
       await db
         .update(videos)
         .set({
@@ -181,7 +191,7 @@ export const POST = async (request: Request) => {
         } else {
           // we can't remove the associated files from Uploadthing - clear mux Info in database and set the muxStatus to deleted
           // we have to deal with this in some way ...
-          const [updatedVideo] = await db
+          await db
             .update(videos)
             .set({
               muxStatus: 'deleted',
@@ -191,8 +201,7 @@ export const POST = async (request: Request) => {
               muxTrackStatus: null,
               duration: 0,
             })
-            .where(eq(videos.muxUploadId, data.upload_id))
-            .returning();
+            .where(eq(videos.muxUploadId, data.upload_id));
         }
       } else {
         await db.delete(videos).where(eq(videos.muxUploadId, data.upload_id));

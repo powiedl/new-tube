@@ -1,4 +1,5 @@
 'use client';
+import ErrorFallback from '@/components/error-fallback';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { trpc } from '@/trpc/client';
@@ -16,7 +17,7 @@ export const PlayListHeaderSection = ({
 }: PlaylistHeaderSectionProps) => {
   return (
     <Suspense fallback={<PlaylistHeaderSectionSkeleton />}>
-      <ErrorBoundary fallback={<p>Error</p>}>
+      <ErrorBoundary fallback={<ErrorFallback />}>
         <PlaylistHeaderSectionSuspense playlistId={playlistId} />
       </ErrorBoundary>
     </Suspense>
@@ -30,12 +31,12 @@ const PlaylistHeaderSectionSuspense = ({
   const router = useRouter();
   const utils = trpc.useUtils();
   const remove = trpc.playlists.remove.useMutation({
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast.success('Playlist removed');
       utils.playlists.getMany.invalidate();
       router.push('/playlists');
     },
-    onError: (error) => {
+    onError: () => {
       toast.error('Something went wrong');
     },
   });

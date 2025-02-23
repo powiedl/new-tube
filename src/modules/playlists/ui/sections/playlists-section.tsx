@@ -1,8 +1,6 @@
 'use client';
 import { InfiniteScroll } from '@/components/infinite-scroll';
 import { DEFAULT_LIMIT } from '@/constants';
-import { VideoGridCardSkeleton } from '@/modules/videos/ui/components/video-grid-card';
-import { VideoRowCardSkeleton } from '@/modules/videos/ui/components/video-row-card';
 import { trpc } from '@/trpc/client';
 import { Suspense } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';

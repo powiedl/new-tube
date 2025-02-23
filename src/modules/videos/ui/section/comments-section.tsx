@@ -1,5 +1,6 @@
 'use client';
 
+import ErrorFallback from '@/components/error-fallback';
 import { InfiniteScroll } from '@/components/infinite-scroll';
 import { DEFAULT_LIMIT } from '@/constants';
 import { CommentForm } from '@/modules/comments/ui/comment-form';
@@ -16,7 +17,7 @@ interface CommentsSectionProps {
 export const CommentsSection = ({ videoId }: CommentsSectionProps) => {
   return (
     <Suspense fallback={<CommentsSectionsSkeleton />}>
-      <ErrorBoundary fallback={<p>Error</p>}>
+      <ErrorBoundary fallback={<ErrorFallback />}>
         <CommentsSectionSuspense videoId={videoId} />
       </ErrorBoundary>
     </Suspense>
