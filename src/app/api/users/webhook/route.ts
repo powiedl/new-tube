@@ -32,6 +32,7 @@ export async function POST(req: Request) {
 
   // Get body
   const payload = await req.json();
+  console.log('Clerk Webhook payload', payload);
   const body = JSON.stringify(payload);
 
   let evt: WebhookEvent;
@@ -56,17 +57,33 @@ export async function POST(req: Request) {
 
   if (eventType === 'user.created') {
     const { data } = evt;
-    await db.insert(users).values({
-      clerkId: data.id,
-      name: `${data.first_name} ${data.last_name}`,
-      imageUrl: data.image_url,
-    });
+    const [existingUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkId, data.id));
+    if (!existingUser) {
+      await db.insert(users).values({
+        clerkId: data.id,
+        name: `${data.first_name} ${data.last_name}`,
+        imageUrl: data.image_url,
+      });
+    } else {
+      console.log('The other instance already created this user ...');
+    }
   }
 
   if (eventType === 'user.deleted') {
     const { data } = evt;
     if (!data.id) return new Response('Missing user id', { status: 400 });
-    await db.delete(users).where(eq(users.clerkId, data.id));
+    const [existingUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkId, data.id));
+    if (existingUser) {
+      await db.delete(users).where(eq(users.clerkId, data.id));
+    } else {
+      console.log('The other instance already deleted the user...');
+    }
   }
 
   if (eventType === 'user.updated') {
