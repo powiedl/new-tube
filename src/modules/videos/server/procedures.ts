@@ -317,7 +317,6 @@ export const videosRouter = createTRPCRouter({
           eq(viewerSubscriptions.creatorId, users.id)
         ) // so we can check, if the user is subscribed to the video' author
         .where(eq(videos.id, input.id));
-      //.groupBy(videos.id, users.id, viewerReactions.type); // in my opinion this is not neccessary, because there can only be one viewerReaction for a particular user and video
 
       if (!existingVideo) throw new TRPCError({ code: 'NOT_FOUND' });
       return existingVideo;

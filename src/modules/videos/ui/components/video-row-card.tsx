@@ -93,7 +93,7 @@ export const VideoRowCard = ({
   }, [data.likeCount]);
   return (
     <div className={videoRowCardVariants({ size })}>
-      <Link href={`/videos/${data.id}`}>
+      <Link prefetch href={`/videos/${data.id}`}>
         {/* <div className={thumbnailVariants({ size })}> */}
         <VideoThumbnail
           imageUrl={data.thumbnailUrl}
@@ -106,7 +106,7 @@ export const VideoRowCard = ({
       {/* Info part */}
       <div className='flex-1 min-w-0'>
         <div className='flex justify-between gap-x-2'>
-          <Link href={`/videos/${data.id}`} className='flex-1 min-w-0'>
+          <Link prefetch href={`/videos/${data.id}`} className='flex-1 min-w-0'>
             <h3
               className={cn(
                 'font-medium line-clamp-2',

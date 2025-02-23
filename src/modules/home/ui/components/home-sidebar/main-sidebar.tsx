@@ -43,7 +43,7 @@ export const MainSidebar = () => {
                   }
                 }}
               >
-                <Link href={i.url} className='flex items-center gap-4'>
+                <Link prefetch href={i.url} className='flex items-center gap-4'>
                   <i.icon />
                   <span className='text-sm'>{i.title}</span>
                 </Link>
