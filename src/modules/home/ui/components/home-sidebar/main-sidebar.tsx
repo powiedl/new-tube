@@ -22,7 +22,7 @@ const items = [
   },
   { title: 'Trending', url: '/feed/trending', icon: FlameIcon },
 ];
-export const MainSection = () => {
+export const MainSidebar = () => {
   const clerk = useClerk();
   const { isSignedIn } = useAuth();
   const pathname = usePathname();

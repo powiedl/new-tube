@@ -4,6 +4,7 @@ import {
   SidebarGroup,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { Separator } from '@radix-ui/react-separator';
 import Link from 'next/link';
 
 export const DemoAssetsSidebar = () => {
@@ -13,6 +14,7 @@ export const DemoAssetsSidebar = () => {
     <>
       <SidebarGroup>
         <SidebarContent>
+          <Separator />
           <div className='text-sm text-muted-foreground pl-4 flex flex-col gap-y-1'>
             <h2 className='text-lg font-semibold mb-1 text-foreground'>
               Demo assets

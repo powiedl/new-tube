@@ -272,7 +272,7 @@ Will man dann auch aus beiden Tabellen Spalten im Ergebnis haben, muss man dies 
   })
 ```
 
-Im Beispiel werden alle Informationen von dem passenden User unter einem Attribut zusammengefasst. Ich habe (sinnloserweise, aber als Referenz) auch angegeben wie man nur den name als userName zur Verfügung stellt.
+Im Beispiel werden alle Informationen von dem passenden User unter einem Attribut zusammengefasst. Ich habe (sinnloserweise, aber als Referenz) auch angegeben wie man nur den name als userName zur Verfügung stellt. ACHTUNG: Ab einer gewissen Tiefe von getTableColumns kommt es zu Typescriptfehlern - trotzdem funktionieren diese Abfragen noch. Es ist nur fraglich ob man in solchen Fällen nicht mehrere Abfragen kombiniert (entweder als CTEs oder indem man die Ergebnisse dann in Typescript entsprechend miteinander kombiniert).
 
 ### Kombinierter Primary Key in Drizzle
 
@@ -1196,6 +1196,35 @@ Man kann im normalen Bereich, wo man pages anlegt, auch API-Routen anlegen. Für
 2. Die GET Routine muss in jedem Fall ein redirect returnen.
 
 Das heißt die Idee ist eigentlich, dass man mit der API-Route vorgelagert irgendetwas "berechnet", was man dann zum weiterleiten verwendet. Im Beispiel von `/users/current` wird die API-Route verwendet um aus der clerkId (nur die kann man mit `await auth()` ermitteln über einen Datenbankrequest die Datenbank-UserId herauszufinden, damit man dann zu `/users/{db.userId}` redirecten kann (siehe `/app/(home)/users/current/route.ts`).
+
+### Separator in der Sidebar im collapsed Status nicht anzeigen
+
+Die Sidebar ist eine Server Komponente, daher kann man den useSidebar Hook dort nicht verwenden. Ich habe versucht, den Separator im SignedIn Block mittels geschickter Klassen in CSS zu verstecken, bin aber gescheitert. Da aber die Teilsidebars Client Komponenten sind, kann man den Separator dann in diesen verwenden. Trotzdem bin ich der Meinung, dass es eigentlich auch bei einer Server Komponente mit geschicktem CSS Einsatz möglich sein sollte, dass man ein Sidebar Element versteckt. Wenn das jemand geschafft hat, möge er mir bitte eine entsprechende Information zukommen lassen.
+
+### Dynamische Breite im Skeleton für die Subscriptions Liste in der Sidebar
+
+Ich wollte eine unterschiedliche Breite für die einzelnen Skeletons der "Namen" dessen, den der User subscribed hat. Der erste Ansatz die Klasse mittels String Template Literal zu bilden hat nicht funktioniert, weil die Width immer zu 0px wurde - obwohl die Klasse (wenn man sie sich auf der Konsole ausgegeben hat) richtig geschrieben wurde. Ich konnte dieses Problem nur lösen, indem ich für die Breite auf style ausgewichen bin und die Breite extra in einer eigenen Variable berechnet habe:
+
+```
+export const LoadingSkeleton = () => {
+  return (
+    <>
+      {[1, 2, 3].map((i) => {
+        const w = 4 * (4 * 8 + 6 * (i % 3));
+        const width = `${w}px`;
+        return (
+          <SidebarMenuItem key={i} className='w-full'>
+            <SidebarMenuButton disabled className='w-full'>
+              <Skeleton className='size-4 rounded-full' />
+              <Skeleton className='h-4' style={{ width }} />
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        );
+      })}
+    </>
+  );
+};
+```
 
 ### TODOs
 

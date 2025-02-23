@@ -45,7 +45,7 @@ const items = [
     auth: true,
   },
 ];
-export const PersonalSection = () => {
+export const PersonalSidebar = () => {
   const clerk = useClerk();
   const pathname = usePathname();
   const { isSignedIn } = useAuth();
