@@ -1228,4 +1228,16 @@ export const LoadingSkeleton = () => {
 
 ### TODOs
 
-- VideoRowCard size compact ist falsch, da muss ich am Ende noch einmal nachschauen, was ich da falsch gemacht habe (es fehlt das Video)
+#### VideoRowCard size compact ist falsch
+
+Da muss ich am Ende noch einmal nachschauen, was ich da falsch gemacht habe (es fehlt das Video).
+
+Erledigt: das Problem war, dass bei `compact: 'w-[168px]',` in `video-row-card.tsx` die schließende `]` gefehlt hat - damit wurde width zu 0.
+
+#### Warum wird jede Stunde von MUX eine neue Version der Video Thumbnails und Previews zu Uploadthing hochgeladen?
+
+Der Auslöser ist, dass MUX für jedes Video jede Stunde ein video.asset.ready an den Webhook schickt. Dieses Schicken sieht man im Log auf MUX-Seite nicht.
+
+Ich habe jetzt begonnen, das zu "umgehen". Im Moment kontrolliere ich, ob das betroffene Video bereits einen previewKey oder einen thumbnailKey gespeichert hat. Die Idee ist, dass ich, wenn es das bereits gespeichert hat, dass ich keinen Upload der Daten von MUX zu Uploadthing mache - weil ich ja gar nicht will, dass später MUX diese Dinge verändern kann (außer bei Restore Thumbnail - das muss ich extra Testen, wenn das "Verhindern" klappt).
+
+Außerdem ist mir dabei aufgefallen, dass die Preview und der Thumbnail nicht gelöscht werden, wenn das Video auf MUX gelöscht wird. Ich habe den entsprechenden Webhook video.asset.deleted jetzt so erweitert, dass versucht wird, diese Dinge auf Uploadthing zu löschen, wenn sie vorhanden sind. Wenn das erfolgreich war (oder es für das betreffende Video nichts auf Uploadthing gab) wird das Video in der Datenbank gelöscht. Wenn es nicht erfolgreich war, werden alle MUX-Felder gelöscht (nur muxStatus wird auf deleted gesetzt). Sinnvollerweise muss ich dann noch eine Möglichkeit schaffen, dass der User diese Videos manuell löschen kann (ich weiß noch nicht, wie ich da mit Uploadthing umgehe). Und eventuell muss man beim Suchen von Videos immer auf muxStatus !== 'deleted' einschränken. Das schaue ich mir dann an, wenn es soweit ist.

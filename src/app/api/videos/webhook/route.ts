@@ -12,6 +12,7 @@ import { UTApi } from 'uploadthing/server';
 import { db } from '@/db';
 import { videos } from '@/db/schema';
 const SIGNING_SECRET = process.env.MUX_WEBHOOK_SECRET!;
+const UPLOADTHING_URL = process.env.UPLOADTHING_URL!;
 
 type WebhookEvent =
   | VideoAssetCreatedWebhookEvent
@@ -77,6 +78,16 @@ export const POST = async (request: Request) => {
       console.log('Database videoId', existingVideo?.id);
       if (!existingVideo)
         return new Response('Unknown Video ID', { status: 404 });
+      if (existingVideo.previewKey) {
+        console.log(
+          `  ES IST BEREITS EIN PREVIEW IN DER DATENBANK GESPEICHERT (${existingVideo.previewKey})`
+        );
+      }
+      if (existingVideo.thumbnailKey) {
+        console.log(
+          `  ES IST BEREITS EIN THUMBNAIL IN DER DATENBANK GESPEICHERT (${existingVideo.thumbnailKey})`
+        );
+      }
       const tempThumbnailUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg`;
       const tempPreviewUrl = `https://image.mux.com/${playbackId}/animated.gif`;
       const duration = data.duration ? Math.round(data.duration * 1000) : 0;
@@ -138,7 +149,54 @@ export const POST = async (request: Request) => {
         return new Response('Missing upload ID', { status: 400 });
       }
 
-      await db.delete(videos).where(eq(videos.muxUploadId, data.upload_id));
+      const [deletedVideo] = await db
+        .select()
+        .from(videos)
+        .where(eq(videos.muxUploadId, data.upload_id));
+      const filesToDelete: string[] = [];
+      if (
+        deletedVideo?.previewUrl?.startsWith(UPLOADTHING_URL) &&
+        deletedVideo?.previewKey
+      ) {
+        filesToDelete.push(deletedVideo?.previewKey);
+      }
+      if (
+        deletedVideo?.thumbnailUrl?.startsWith(UPLOADTHING_URL) &&
+        deletedVideo?.thumbnailKey
+      ) {
+        filesToDelete.push(deletedVideo?.thumbnailKey);
+      }
+
+      if (filesToDelete) {
+        const utapi = new UTApi();
+        const uploadThingDeleteFilesResponse = await utapi.deleteFiles(
+          filesToDelete
+        );
+        if (
+          uploadThingDeleteFilesResponse.success &&
+          uploadThingDeleteFilesResponse.deletedCount === filesToDelete.length
+        ) {
+          // we successfully removed the associated files from Uploadthing - delete the video in the database
+          await db.delete(videos).where(eq(videos.muxUploadId, data.upload_id));
+        } else {
+          // we can't remove the associated files from Uploadthing - clear mux Info in database and set the muxStatus to deleted
+          // we have to deal with this in some way ...
+          const [updatedVideo] = await db
+            .update(videos)
+            .set({
+              muxStatus: 'deleted',
+              muxAssetId: null,
+              muxUploadId: null,
+              muxTrackId: null,
+              muxTrackStatus: null,
+              duration: 0,
+            })
+            .where(eq(videos.muxUploadId, data.upload_id))
+            .returning();
+        }
+      } else {
+        await db.delete(videos).where(eq(videos.muxUploadId, data.upload_id));
+      }
       break;
     }
     case 'video.asset.track.ready': {

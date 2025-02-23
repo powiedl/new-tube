@@ -30,7 +30,7 @@ const thumbnailVariants = cva('relative flex-none', {
   variants: {
     size: {
       default: 'w-[38%]',
-      compact: 'w-[168px',
+      compact: 'w-[168px]',
     },
   },
   defaultVariants: {
@@ -42,39 +42,6 @@ interface VideoRowCardProps extends VariantProps<typeof videoRowCardVariants> {
   data: VideoGetManyOutput['items'][number];
   onRemove?: () => void;
 }
-
-export const VideoRowCardSkeleton = ({
-  size = 'default',
-}: VariantProps<typeof videoRowCardVariants>) => {
-  return (
-    <div className={videoRowCardVariants({ size })}>
-      {/* Thumbnail skeleton */}
-      <div className={thumbnailVariants({ size })}>
-        <VideoThumbnailSkeleton />
-      </div>
-      {/* info skeleton */}
-      <div className='flex-1 min-w-0'>
-        <div className='flex justify-between gap-x-2'>
-          <div className='flex-1 min-w-0'>
-            <Skeleton
-              className={cn('h-5 w-[40%]', size === 'compact' && 'h-4 w-[40%]')}
-            />
-            {size === 'default' && (
-              <>
-                <Skeleton className='h-4 w-[20%] mt-1' />
-                <div className='flex items-center gap-2 my-3'>
-                  <Skeleton className='size-8 rounded-full' />
-                  <Skeleton className='h-4 w-24' />
-                </div>
-              </>
-            )}
-            {size === 'compact' && <Skeleton className='h-4 w-[50%] mt-1' />}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export const VideoRowCard = ({
   data,
@@ -93,7 +60,11 @@ export const VideoRowCard = ({
   }, [data.likeCount]);
   return (
     <div className={videoRowCardVariants({ size })}>
-      <Link prefetch href={`/videos/${data.id}`}>
+      <Link
+        prefetch
+        href={`/videos/${data.id}`}
+        className={thumbnailVariants({ size })}
+      >
         {/* <div className={thumbnailVariants({ size })}> */}
         <VideoThumbnail
           imageUrl={data.thumbnailUrl}
@@ -155,6 +126,39 @@ export const VideoRowCard = ({
           </Link>
           <div className='flex-none'>
             <VideoMenu videoId={data.id} onRemove={onRemove} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const VideoRowCardSkeleton = ({
+  size = 'default',
+}: VariantProps<typeof videoRowCardVariants>) => {
+  return (
+    <div className={videoRowCardVariants({ size })}>
+      {/* Thumbnail skeleton */}
+      <div className={thumbnailVariants({ size })}>
+        <VideoThumbnailSkeleton />
+      </div>
+      {/* info skeleton */}
+      <div className='flex-1 min-w-0'>
+        <div className='flex justify-between gap-x-2'>
+          <div className='flex-1 min-w-0'>
+            <Skeleton
+              className={cn('h-5 w-[40%]', size === 'compact' && 'h-4 w-[40%]')}
+            />
+            {size === 'default' && (
+              <>
+                <Skeleton className='h-4 w-[20%] mt-1' />
+                <div className='flex items-center gap-2 my-3'>
+                  <Skeleton className='size-8 rounded-full' />
+                  <Skeleton className='h-4 w-24' />
+                </div>
+              </>
+            )}
+            {size === 'compact' && <Skeleton className='h-4 w-[50%] mt-1' />}
           </div>
         </div>
       </div>
