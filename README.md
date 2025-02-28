@@ -1153,6 +1153,90 @@ The generation assumes, that the transcript is already available in the variable
 
 Unfortunatly Google Gemini offers no free tier for text to image creation. I've searched the internet and finally I found an AI API that offers free text to image conversion, **Imagine art**. But there is another downside to this service - it expects the input as formData - and until now I'm not able to get Upstash Workflow to send the data as form Data (no matter what type of header I put in the request, it is always converted to `application/json`). That's why the generate thumbnail option is temporary disabled (I will activate it later , if I find a solution to send formData or if I find another text to image AI with a free tier).
 
+## AI - OpenAI Alternative ([pollinations](https://https://pollinations.ai/))
+
+Finally I've found a free alternative to OpenAI, the German Start Up **pollinations.ai**. They offer free AI services including image generation. You don't even have to register for an API key, their Image generation URL is a simple GET request without the need of any header.
+
+I've not figured out how they are making money and if this service will last for longer, but right now it works and so I've decided to go with it.
+
+The URL to generate an image is as simple as: `https://image.pollinations.ai/prompt/{prompt}`. All parameters are passed as query parameters in the url. The prompt is the prompt for the image - and as it is part of the URL it needs to be URIEncoded. And the parameters I use beside the `prompt` are `width`, `height` and `model` (which I hardcode to `flux`).
+
+This API returns the image as image/jpeg as response to this request. Unfortunately I was not able to take that response and succeed in uploading it to uploadthing as a picture. But if you call the same URL a second time you get the same picture immeadiately (I don't know how long the picture is "preserved" at the URL but for my following trick it always works):
+
+I call the url to generate the picture. If I get back a success I pass the "generation" URL as thumbnail Url to the uploadthing Uploadfunction.
+
+After successfull changing the thumbnaildata in the database I delete the old thumbnail from uploadthing (to save diskspace over there). Here you can see my implementation of the generateThumbnail route:
+
+```
+export const { POST } = serve(async (context) => {
+  console.log(
+    'POST /api/videos/workflows/thumbnail, NEXT_PUBLIC_IMAGE_AI',
+    process.env.NEXT_PUBLIC_IMAGE_AI
+  );
+  const {
+    videoId,
+    userId,
+    aiEngine = process.env.NEXT_PUBLIC_IMAGE_AI || 'POLLINATIONS',
+    prompt,
+  } = context.requestPayload as InputType;
+  let thumbnailKey = '';
+  let thumbnailUrl = '';
+  const video = await context.run('get-video', async () => {
+    const [existingVideo] = await db
+      .select()
+      .from(videos)
+      .where(and(eq(videos.id, videoId), eq(videos.userId, userId)));
+    return existingVideo;
+  });
+  if (!video) throw new Error('Not found');
+  let res;
+  if (aiEngine === 'POLLINATIONS') {
+    const width = 320;
+    const height = 180;
+    const model = 'flux';
+    const baseUrl = process.env.POLLINATIONS_IMAGE_URL;
+    const url = `${baseUrl}/prompt/${encodeURIComponent(
+      prompt
+    )}?width=${width}&height=${height}&model=${model}`;
+
+    const { status } = await context.call<Buffer>(
+      'generate-thumbnail-pollinations',
+      {
+        url,
+        method: 'GET',
+      }
+    );
+    let uploadedFile: UploadFileResult;
+    if (status === 200) {
+      // we use a trick and pass the URL we used to generate also as the URL to upload - but now the image is already generated, so we can simply use it for the upload
+      const utapi = new UTApi();
+
+      uploadedFile = await context.run('upload-thumbnail', async () => {
+        return await utapi.uploadFilesFromUrl(url);
+      });
+      thumbnailKey = uploadedFile?.data?.key || '';
+      thumbnailUrl = uploadedFile?.data?.url || '';
+
+      if (video.thumbnailKey) await utapi.deleteFiles(video.thumbnailKey); // remove old thumbnail if present
+    }
+  }
+
+  if (thumbnailKey && thumbnailUrl) {
+    await context.run('update-video', async () => {
+      const updatedVideo = await db
+        .update(videos)
+        .set({
+          thumbnailKey,
+          thumbnailUrl,
+        })
+        .where(and(eq(videos.id, videoId), eq(videos.userId, userId)))
+        .returning();
+      return updatedVideo;
+    });
+  }
+});
+```
+
 ## Misc
 
 ### useSearchParams
@@ -1232,7 +1316,7 @@ export const LoadingSkeleton = () => {
 
 Da muss ich am Ende noch einmal nachschauen, was ich da falsch gemacht habe (es fehlt das Video).
 
-Erledigt: das Problem war, dass bei `compact: 'w-[168px]',` in `video-row-card.tsx` die schließende `]` gefehlt hat - damit wurde width zu 0.
+**Erledigt**: das Problem war, dass bei `compact: 'w-[168px]',` in `video-row-card.tsx` die schließende `]` gefehlt hat - damit wurde width zu 0.
 
 #### Warum wird jede Stunde von MUX eine neue Version der Video Thumbnails und Previews zu Uploadthing hochgeladen?
 

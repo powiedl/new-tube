@@ -7,6 +7,9 @@ import { eq } from 'drizzle-orm';
 
 export async function POST(req: Request) {
   const SIGNING_SECRET = process.env.CLERK_SIGNING_SECRET;
+  console.log(
+    `${new Date().getHours()}:${new Date().getMinutes()}:${new Date().getSeconds()} HITTING Clerk WEBHOOK ...`
+  );
 
   if (!SIGNING_SECRET) {
     throw new Error(
@@ -32,7 +35,7 @@ export async function POST(req: Request) {
 
   // Get body
   const payload = await req.json();
-  console.log('Clerk Webhook payload', payload);
+  //console.log('Clerk Webhook payload', payload);
   const body = JSON.stringify(payload);
 
   let evt: WebhookEvent;
