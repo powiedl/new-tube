@@ -17,6 +17,14 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 
+// Form values used by the UI. Keep this minimal and explicit to avoid
+// type incompatibilities between Drizzle's BuildSchema and Zod types.
+type CommentFormValues = {
+  parentId?: string | null;
+  videoId: string;
+  value: string;
+};
+
 interface CommentFormProps {
   videoId: string;
   variant?: 'comment' | 'reply';
@@ -33,6 +41,19 @@ export const CommentForm = ({
 }: CommentFormProps) => {
   const utils = trpc.useUtils();
   const clerk = useClerk();
+  const { user } = useUser();
+  const form = useForm<CommentFormValues>({
+    // Drizzle's generated schema types can be incompatible with the
+    // resolver typing; cast to `ZodTypeAny` to avoid build-time type errors.
+    resolver: zodResolver(
+      commentInsertSchema.omit({ userId: true }) as unknown as z.ZodTypeAny
+    ),
+    defaultValues: {
+      parentId: parentId,
+      videoId,
+      value: '',
+    },
+  });
   const create = trpc.comments.create.useMutation({
     onSuccess: () => {
       utils.comments.getMany.invalidate({ videoId });
@@ -48,17 +69,8 @@ export const CommentForm = ({
       }
     },
   });
-  const { user } = useUser();
-  const form = useForm<z.infer<typeof commentInsertSchema>>({
-    resolver: zodResolver(commentInsertSchema.omit({ userId: true })),
-    defaultValues: {
-      parentId: parentId,
-      videoId,
-      value: '',
-    },
-  });
 
-  const handleSubmit = (values: z.infer<typeof commentInsertSchema>) => {
+  const handleSubmit = (values: CommentFormValues) => {
     create.mutate(values);
   };
   const handleCancel = () => {

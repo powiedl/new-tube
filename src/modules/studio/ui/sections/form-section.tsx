@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { trpc } from '@/trpc/client';
 import { Suspense, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldValues } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -144,14 +144,16 @@ const FormSectionSuspense = ({ videoId }: FormSectionProps) => {
       toast.error('Something went wrong');
     },
   });
-  const form = useForm<z.infer<typeof videoUpdateSchema>>({
-    resolver: zodResolver(videoUpdateSchema),
+  const form = useForm<FieldValues>({
+    // Drizzle-generated schemas can be incompatible with the resolver typing;
+    // cast to `ZodTypeAny` to avoid build-time type errors.
+    resolver: zodResolver(videoUpdateSchema as unknown as z.ZodTypeAny),
     defaultValues: video,
   });
 
-  const onSubmit = (data: z.infer<typeof videoUpdateSchema>) => {
-    update.mutate(data);
-    //console.log(data);
+  const onSubmit = (data: FieldValues) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update.mutate(data as any);
   };
 
   const fullUrl = `${APP_URL}/videos/${videoId}`;
