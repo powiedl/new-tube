@@ -54,12 +54,9 @@ const VideosSectionSuspense = () => {
             {videos.pages
               .flatMap((page) => page.items)
               .map((video) => (
-                <Link
-                  prefetch
-                  href={`/studio/videos/${video.id}`}
-                  key={video.id}
-                  legacyBehavior
-                >
+                <Link prefetch href={`/studio/videos/${video.id}`} key={video.id}>
+                  {/* @next-codemod-error This Link previously used the now removed `legacyBehavior` prop, and has a child that might not be an anchor. The codemod bailed out of lifting the child props to the Link. Check that the child component does not render an anchor, and potentially move the props manually to Link. */
+                  }
                   <TableRow className='cursor-pointer'>
                     <TableCell className='pl-6'>
                       <div className='flex items-center gap-4'>
@@ -110,7 +107,6 @@ const VideosSectionSuspense = () => {
           </TableBody>
         </Table>
       </div>
-
       <InfiniteScroll
         hasNextPage={query.hasNextPage}
         isFetchingNextPage={query.isFetchingNextPage}
