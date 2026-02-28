@@ -2,6 +2,7 @@ import { db } from '@/db';
 import { videos } from '@/db/schema';
 import { serve } from '@upstash/workflow/nextjs';
 import { and, eq } from 'drizzle-orm';
+import { genAI, GEMINI_PREFERED_MODEL } from '@/lib/gemini';
 
 interface InputType {
   userId: string;
@@ -39,39 +40,12 @@ export const { POST } = serve(async (context) => {
   const generatedDescription = await context.run(
     'generate-description',
     async () => {
-      // Rufe die Edge-API mit Streaming auf
-      const baseUrl = process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : 'http://localhost:3000';
-
-      const response = await fetch(
-        `${baseUrl}/api/videos/generate-description`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            videoId,
-            userId,
-            prompt: fullPrompt,
-          }),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.statusText}`);
-      }
-
-      // Lese den Stream aus und sammle den vollständigen Text
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No response stream');
+      const model = genAI.getGenerativeModel({ model: GEMINI_PREFERED_MODEL });
+      const stream = await model.generateContentStream(fullPrompt);
 
       let fullText = '';
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        fullText += decoder.decode(value);
+      for await (const chunk of stream.stream) {
+        fullText += chunk.text();
       }
 
       return fullText;
