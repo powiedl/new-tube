@@ -2,11 +2,11 @@ import { db } from '@/db';
 import { videos } from '@/db/schema';
 import { serve } from '@upstash/workflow/nextjs';
 import { and, eq } from 'drizzle-orm';
-import {
-  genAI,
-  //  GEMINI_BACKUP_MODEL,
-  GEMINI_PREFERED_MODEL,
-} from '@/lib/gemini';
+// import {
+//   genAI,
+//   //  GEMINI_BACKUP_MODEL,
+//   GEMINI_PREFERED_MODEL,
+// } from '@/lib/gemini';
 
 interface InputType {
   userId: string;
@@ -40,18 +40,32 @@ export const { POST } = serve(async (context) => {
     if (!transcript) throw new Error('Bad request'); // here it makes sense to throw the error inside, because maybe the trackUrl-Endpoint is temporary unavailable
     return transcript;
   });
-
-  const generatedDescription = await context.run(
-    'generate-description',
-    async () => {
-      //const genAI = new GoogleGenerativeAI(context.env.GEMINI_APIKEY!);
-      const model = genAI.getGenerativeModel({ model: GEMINI_PREFERED_MODEL });
-
-      const prompt = `${DESCRIPTION_PROMPT}"${transcript}"`;
-      const result = await model.generateContent(prompt);
-      return result.response.text();
-    }
+  const prompt = `${DESCRIPTION_PROMPT}"${transcript}"`;
+  const aiResponse = await context.call<{ description: string }>(
+    'generate-description-call',
+    {
+      url: `${process.env.NEXT_PUBLIC_APP_URL}/api/videos/generate-description`,
+      method: 'POST',
+      body: {
+        prompt,
+        internalKey: process.env.EDGE_API_KEY,
+      },
+    },
   );
+  const generatedDescription = (
+    aiResponse as unknown as { description: string }
+  ).description;
+  // const generatedDescription = await context.run(
+  //   'generate-description',
+  //   async () => {
+  //     //const genAI = new GoogleGenerativeAI(context.env.GEMINI_APIKEY!);
+  //     const model = genAI.getGenerativeModel({ model: GEMINI_PREFERED_MODEL });
+
+  //     const prompt = `${DESCRIPTION_PROMPT}"${transcript}"`;
+  //     const result = await model.generateContent(prompt);
+  //     return result.response.text();
+  //   },
+  // );
 
   if (!generatedDescription)
     throw new Error('Unable to generate a description');
