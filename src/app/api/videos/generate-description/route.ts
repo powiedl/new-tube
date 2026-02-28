@@ -1,5 +1,7 @@
 import { genAI, GEMINI_PREFERED_MODEL } from '@/lib/gemini';
-
+import { db } from '@/db';
+import { videos } from '@/db/schema';
+import { and, eq } from 'drizzle-orm';
 export const runtime = 'edge';
 
 export async function POST(request: Request) {
@@ -59,7 +61,7 @@ export async function POST(request: Request) {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
+        Connection: 'keep-alive',
       },
     });
   } catch (error) {
