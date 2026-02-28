@@ -41,20 +41,36 @@ export const { POST } = serve(async (context) => {
     return transcript;
   });
   const prompt = `${DESCRIPTION_PROMPT}"${transcript}"`;
-  const aiResponse = await context.call<{ description: string }>(
-    'generate-description-call',
-    {
-      url: `${process.env.NEXT_PUBLIC_APP_URL}/api/videos/generate-description`,
-      method: 'POST',
-      body: {
-        prompt,
-        internalKey: process.env.EDGE_API_KEY,
-      },
+  // call the edge function via workflow helper
+  const aiResponse = await context.call('generate-description-call', {
+    url: `${process.env.NEXT_PUBLIC_APP_URL}/api/videos/generate-description`,
+    method: 'POST',
+    body: {
+      prompt,
+      internalKey: process.env.EDGE_API_KEY,
     },
-  );
-  const generatedDescription = (
-    aiResponse as unknown as { description: string }
-  ).description;
+  });
+
+  // debug the raw payload we got back from the edge endpoint
+  console.log('[description] aiResponse raw:', aiResponse);
+
+  // extract text from possible shapes (status/body or direct object)
+  let generatedDescription: string | undefined;
+  if (aiResponse && typeof aiResponse === 'object') {
+    if (
+      'description' in aiResponse &&
+      typeof aiResponse.description === 'string'
+    ) {
+      generatedDescription = aiResponse.description as string;
+    } else if ('body' in aiResponse && typeof aiResponse.body === 'string') {
+      try {
+        const parsed = JSON.parse(aiResponse.body);
+        generatedDescription = parsed?.description;
+      } catch (e) {
+        console.warn('[description] failed to parse aiResponse.body', e);
+      }
+    }
+  }
   // const generatedDescription = await context.run(
   //   'generate-description',
   //   async () => {

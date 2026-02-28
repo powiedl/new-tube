@@ -7,12 +7,17 @@ export async function POST(request: Request) {
   try {
     const { videoId, userId, prompt, internalKey } = await request.json();
 
+    console.log('[edge] incoming params', {
+      videoId,
+      userId,
+      promptLength: prompt?.length,
+    });
+
     // simple shared-secret auth to prevent public hitting the edge route
     const expectedKey = process.env.EDGE_API_KEY;
 
-    //console.log('[Edge Auth] Incoming:', incomingKey, 'Expected:', expectedKey);
-
     if (internalKey !== expectedKey) {
+      console.warn('[edge] unauthorized, got', internalKey);
       return new Response(
         JSON.stringify({ error: 'Unauthorized - missing internal key' }),
         {
@@ -31,13 +36,13 @@ export async function POST(request: Request) {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_APIKEY!);
     const GEMINI_PREFERED_MODEL =
       process.env.GEMINI_PREFERED_MODEL || 'gemini-2.5-flash-lite';
-    //const GEMINI_BACKUP_MODEL = process.env.GEMINI_BACKUP_MODEL || 'gemini-2.5-flash';
 
     const model = genAI.getGenerativeModel({ model: GEMINI_PREFERED_MODEL });
 
     // Streaming-Response für bessere UX und um Timeouts zu vermeiden
     const result = await model.generateContent(prompt);
     const text = result.response.text();
+    console.log('[edge] got text length', text.length);
 
     return NextResponse.json({ description: text });
   } catch (error) {
