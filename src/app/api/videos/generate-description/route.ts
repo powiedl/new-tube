@@ -5,19 +5,11 @@ import { and, eq } from 'drizzle-orm';
 
 export const runtime = 'edge';
 
-const DESCRIPTION_PROMPT = `Your task is to summarize the transcript of a video. Please follow these guidelines:
-- Be brief. Condense the content into a summary that captures the key points and main ideas without losing important details.
-- Avoid jargon or overly complex language unless necessary for the context.
-- Focus on the most critical information, ignoring filler, repetitive statements, or irrelevant tangents.
-- ONLY return the summary, no other text, annotations, or comments.
-- Aim for a summary that is 3-5 sentences long and no more than 200 characters.
-The transcript is:`;
-
 export async function POST(request: Request) {
   try {
-    const { videoId, userId, transcript } = await request.json();
+    const { videoId, userId, prompt } = await request.json();
 
-    if (!videoId || !userId || !transcript) {
+    if (!videoId || !userId || !prompt) {
       return new Response(JSON.stringify({ error: 'Missing parameters' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
@@ -25,7 +17,6 @@ export async function POST(request: Request) {
     }
 
     const model = genAI.getGenerativeModel({ model: GEMINI_PREFERED_MODEL });
-    const prompt = `${DESCRIPTION_PROMPT}"${transcript}"`;
 
     // Streaming-Response für bessere UX und um Timeouts zu vermeiden
     const stream = await model.generateContentStream(prompt);
@@ -34,7 +25,7 @@ export async function POST(request: Request) {
     let fullText = '';
     const encoder = new TextEncoder();
 
-    return new ReadableStream({
+    const readableStream = new ReadableStream({
       async start(controller) {
         try {
           for await (const chunk of stream.stream) {
@@ -55,6 +46,14 @@ export async function POST(request: Request) {
         } catch (error) {
           controller.error(error);
         }
+      },
+    });
+
+    return new Response(readableStream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
       },
     });
   } catch (error) {

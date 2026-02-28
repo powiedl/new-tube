@@ -35,7 +35,7 @@ export const { POST } = serve(async (context) => {
     if (!transcript) throw new Error('Bad request'); // here it makes sense to throw the error inside, because maybe the trackUrl-Endpoint is temporary unavailable
     return transcript;
   });
-
+  const fullPrompt = `${DESCRIPTION_PROMPT}"${transcript}"`;
   const generatedDescription = await context.run(
     'generate-description',
     async () => {
@@ -52,7 +52,7 @@ export const { POST } = serve(async (context) => {
           body: JSON.stringify({
             videoId,
             userId,
-            transcript,
+            prompt: fullPrompt,
           }),
         },
       );
