@@ -10,7 +10,11 @@ export async function POST(request: Request) {
 
     // simple shared-secret auth to prevent public hitting the edge route
     const incomingKey = request.headers.get('x-internal-key');
-    if (incomingKey !== process.env.EDGE_API_KEY) {
+    const expectedKey = process.env.EDGE_API_KEY;
+
+    console.log('[Edge Auth] Incoming:', incomingKey, 'Expected:', expectedKey);
+
+    if (incomingKey !== expectedKey) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },

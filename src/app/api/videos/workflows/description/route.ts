@@ -47,6 +47,9 @@ export const { POST } = serve(async (context) => {
           ? `https://${process.env.VERCEL_URL}`
           : 'http://localhost:3000');
 
+      console.log('[Workflow] EDGE_API_KEY:', process.env.EDGE_API_KEY);
+      console.log('[Workflow] BASE_URL:', baseUrl);
+
       // fire-and-forget call to edge, it will update the DB itself
       const response = await fetch(
         `${baseUrl}/api/videos/generate-description`,
