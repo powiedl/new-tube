@@ -2,11 +2,6 @@ import { db } from '@/db';
 import { videos } from '@/db/schema';
 import { serve } from '@upstash/workflow/nextjs';
 import { and, eq } from 'drizzle-orm';
-import {
-  genAI,
-  //  GEMINI_BACKUP_MODEL,
-  GEMINI_PREFERED_MODEL,
-} from '@/lib/gemini';
 
 interface InputType {
   userId: string;
@@ -44,13 +39,43 @@ export const { POST } = serve(async (context) => {
   const generatedDescription = await context.run(
     'generate-description',
     async () => {
-      //const genAI = new GoogleGenerativeAI(context.env.GEMINI_APIKEY!);
-      const model = genAI.getGenerativeModel({ model: GEMINI_PREFERED_MODEL });
+      // Rufe die Edge-API mit Streaming auf
+      const baseUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000';
 
-      const prompt = `${DESCRIPTION_PROMPT}"${transcript}"`;
-      const result = await model.generateContent(prompt);
-      return result.response.text();
-    }
+      const response = await fetch(
+        `${baseUrl}/api/videos/generate-description`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            videoId,
+            userId,
+            transcript,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.statusText}`);
+      }
+
+      // Lese den Stream aus und sammle den vollständigen Text
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response stream');
+
+      let fullText = '';
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        fullText += decoder.decode(value);
+      }
+
+      return fullText;
+    },
   );
 
   if (!generatedDescription)
