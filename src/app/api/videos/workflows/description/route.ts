@@ -2,7 +2,7 @@ import { db } from '@/db';
 import { videos } from '@/db/schema';
 import { serve } from '@upstash/workflow/nextjs';
 import { and, eq } from 'drizzle-orm';
-//import { genAI, GEMINI_PREFERED_MODEL } from '@/lib/gemini';
+import { genAI, GEMINI_PREFERED_MODEL } from '@/lib/gemini';
 
 interface InputType {
   userId: string;
@@ -37,38 +37,20 @@ export const { POST } = serve(async (context) => {
     return transcript;
   });
   const fullPrompt = `${DESCRIPTION_PROMPT}"${transcript}"`;
+
   const generatedDescription = await context.run(
     'generate-description',
     async () => {
-      // call edge function so model work runs in an edge context with streaming
-      const baseUrl =
-        process.env.BASE_URL ||
-        (process.env.VERCEL_URL
-          ? `https://${process.env.VERCEL_URL}`
-          : 'http://localhost:3000');
+      // run Gemini call directly inside workflow
+      const model = genAI.getGenerativeModel({ model: GEMINI_PREFERED_MODEL });
+      const stream = await model.generateContentStream(fullPrompt);
 
-      console.log('[Workflow] EDGE_API_KEY:', process.env.EDGE_API_KEY);
-      console.log('[Workflow] BASE_URL:', baseUrl);
-
-      // fire-and-forget call to edge, it will update the DB itself
-      const response = await fetch(
-        `${baseUrl}/api/videos/generate-description`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-internal-key': process.env.EDGE_API_KEY || '',
-          },
-          body: JSON.stringify({ prompt: fullPrompt, videoId, userId }),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.statusText}`);
+      let fullText = '';
+      for await (const chunk of stream.stream) {
+        fullText += chunk.text();
       }
 
-      // don't read the body; we just need the request to be accepted
-      return '';
+      return fullText;
     },
   );
 
