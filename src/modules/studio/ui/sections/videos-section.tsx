@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { VideoThumbnail } from '@/modules/videos/ui/components/video-thumbnail';
 import { snakeCaseToTitle } from '@/lib/utils';
 import { formatDate } from 'date-fns';
@@ -31,9 +32,10 @@ export const VideosSection = () => {
   );
 };
 const VideosSectionSuspense = () => {
+  const router = useRouter();
   const [videos, query] = trpc.studio.getMany.useSuspenseInfiniteQuery(
     { limit: DEFAULT_LIMIT },
-    { getNextPageParam: (lastPage) => lastPage.nextCursor }
+    { getNextPageParam: (lastPage) => lastPage.nextCursor },
   );
   return (
     <div>
@@ -54,55 +56,58 @@ const VideosSectionSuspense = () => {
             {videos.pages
               .flatMap((page) => page.items)
               .map((video) => (
-                <Link prefetch href={`/studio/videos/${video.id}`} key={video.id}>
-                  {/* @next-codemod-error This Link previously used the now removed `legacyBehavior` prop, and has a child that might not be an anchor. The codemod bailed out of lifting the child props to the Link. Check that the child component does not render an anchor, and potentially move the props manually to Link. */
-                  }
-                  <TableRow className='cursor-pointer'>
-                    <TableCell className='pl-6'>
-                      <div className='flex items-center gap-4'>
-                        <div className='relative aspect-video w-36 shrink-0'>
-                          <VideoThumbnail
-                            imageUrl={video.thumbnailUrl}
-                            previewUrl={video.previewUrl}
-                            title={video.title}
-                            duration={video.duration || 0}
-                          />
-                        </div>
-                        <div className='flex flex-col overflow-hidden gap-y-1'>
-                          <span className='text-sm line-clamp-1'>
-                            {video.title}
-                          </span>
-                          <span className='text-xs text-muted-foreground line-clamp-1'>
-                            {video.description || 'No description'}
-                          </span>
-                        </div>
+                <TableRow
+                  key={video.id}
+                  className='cursor-pointer'
+                  onClick={() => router.push(`/studio/videos/${video.id}`)}
+                >
+                  <TableCell className='pl-6'>
+                    <Link
+                      href={`/studio/videos/${video.id}`}
+                      className='flex items-center gap-4'
+                    >
+                      <div className='relative aspect-video w-36 shrink-0'>
+                        <VideoThumbnail
+                          imageUrl={video.thumbnailUrl}
+                          previewUrl={video.previewUrl}
+                          title={video.title}
+                          duration={video.duration || 0}
+                        />
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className='flex items-center'>
-                        {video.visibility === 'private' ? (
-                          <LockIcon className='size-4 mr-2' />
-                        ) : (
-                          <GlobeIcon className='size-4 mr-2' />
-                        )}
-                        {snakeCaseToTitle(video.visibility)}
+                      <div className='flex flex-col overflow-hidden gap-y-1'>
+                        <span className='text-sm line-clamp-1'>
+                          {video.title}
+                        </span>
+                        <span className='text-xs text-muted-foreground line-clamp-1'>
+                          {video.description || 'No description'}
+                        </span>
                       </div>
-                    </TableCell>
-                    <TableCell>{snakeCaseToTitle(video.muxStatus)}</TableCell>
-                    <TableCell className='text-sm truncate'>
-                      {formatDate(video.createdAt, 'dd MMM yyyy')}
-                    </TableCell>
-                    <TableCell className='text-right text-sm'>
-                      {video.viewCount}
-                    </TableCell>
-                    <TableCell className='text-right text-sm'>
-                      {video.commentCount}
-                    </TableCell>
-                    <TableCell className='text-right text-sm pr-6'>
-                      {video.likeCount}
-                    </TableCell>
-                  </TableRow>
-                </Link>
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <div className='flex items-center'>
+                      {video.visibility === 'private' ? (
+                        <LockIcon className='size-4 mr-2' />
+                      ) : (
+                        <GlobeIcon className='size-4 mr-2' />
+                      )}
+                      {snakeCaseToTitle(video.visibility)}
+                    </div>
+                  </TableCell>
+                  <TableCell>{snakeCaseToTitle(video.muxStatus)}</TableCell>
+                  <TableCell className='text-sm truncate'>
+                    {formatDate(video.createdAt, 'dd MMM yyyy')}
+                  </TableCell>
+                  <TableCell className='text-right text-sm'>
+                    {video.viewCount}
+                  </TableCell>
+                  <TableCell className='text-right text-sm'>
+                    {video.commentCount}
+                  </TableCell>
+                  <TableCell className='text-right text-sm pr-6'>
+                    {video.likeCount}
+                  </TableCell>
+                </TableRow>
               ))}
           </TableBody>
         </Table>
