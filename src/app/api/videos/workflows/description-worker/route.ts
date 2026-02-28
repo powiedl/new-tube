@@ -2,7 +2,6 @@ import { db } from '@/db';
 import { videos } from '@/db/schema';
 import { genAI, GEMINI_PREFERED_MODEL } from '@/lib/gemini';
 import { and, eq } from 'drizzle-orm';
-import { verifySignatureAppRouter } from '@upstash/qstash/nextjs';
 
 interface WorkerInput {
   videoId: string;
@@ -13,13 +12,33 @@ interface WorkerInput {
 /**
  * Background worker endpoint for generating video descriptions asynchronously
  * Called by QStash (from description/route.ts) after quick validation
- * Protected by QStash signature verification (verifySignatureAppRouter)
+ * DEBUG: Temporarily without signature verification to diagnose issues
  */
-export const POST = verifySignatureAppRouter(async (request: Request) => {
+export async function POST(request: Request) {
+  console.log('[description-worker] Request received');
+  console.log(
+    '[description-worker] Headers:',
+    Object.fromEntries(request.headers),
+  );
+
   try {
-    const { videoId, userId, prompt } = (await request.json()) as WorkerInput;
+    const body = await request.text();
+    console.log('[description-worker] Raw body:', body);
+
+    const parsed = JSON.parse(body) as WorkerInput;
+    const { videoId, userId, prompt } = parsed;
+    console.log('[description-worker] Parsed:', {
+      videoId,
+      userId,
+      promptLength: prompt?.length,
+    });
 
     if (!videoId || !userId || !prompt) {
+      console.log('[description-worker] Missing params:', {
+        videoId: !!videoId,
+        userId: !!userId,
+        prompt: !!prompt,
+      });
       return new Response(JSON.stringify({ error: 'Missing parameters' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
@@ -64,16 +83,16 @@ export const POST = verifySignatureAppRouter(async (request: Request) => {
         headers: { 'Content-Type': 'application/json' },
       },
     );
-  } catch (error) {
-    console.error('[description-worker] Error:', error);
+  } catch (parseError) {
+    console.error('[description-worker] Parse/Processing error:', parseError);
     return new Response(
       JSON.stringify({
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: parseError instanceof Error ? parseError.message : 'Parse error',
       }),
       {
-        status: 500,
+        status: 400,
         headers: { 'Content-Type': 'application/json' },
       },
     );
   }
-});
+}
