@@ -40,15 +40,27 @@ export const { POST } = serve(async (context) => {
   const generatedDescription = await context.run(
     'generate-description',
     async () => {
-      const model = genAI.getGenerativeModel({ model: GEMINI_PREFERED_MODEL });
-      const stream = await model.generateContentStream(fullPrompt);
+      // call edge function so model work runs in an edge context with streaming
+      const baseUrl = process.env.BASE_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
 
-      let fullText = '';
-      for await (const chunk of stream.stream) {
-        fullText += chunk.text();
+      // fire-and-forget call to edge, it will update the DB itself
+      const response = await fetch(`${baseUrl}/api/videos/generate-description`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-key': process.env.EDGE_API_KEY || '',
+        },
+        body: JSON.stringify({ prompt: fullPrompt, videoId, userId }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.statusText}`);
       }
 
-      return fullText;
+      // don't read the body; we just need the request to be accepted
+      return '';
+
     },
   );
 
