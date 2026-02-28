@@ -2,6 +2,7 @@ import { db } from '@/db';
 import { videos } from '@/db/schema';
 import { genAI, GEMINI_PREFERED_MODEL } from '@/lib/gemini';
 import { and, eq } from 'drizzle-orm';
+import { verifySignatureAppRouter } from '@upstash/qstash/nextjs';
 
 interface WorkerInput {
   videoId: string;
@@ -12,9 +13,9 @@ interface WorkerInput {
 /**
  * Background worker endpoint for generating video descriptions asynchronously
  * Called by QStash (from description/route.ts) after quick validation
- * No timeout issues because this runs in Upstash/QStash context
+ * Protected by QStash signature verification (verifySignatureAppRouter)
  */
-export async function POST(request: Request) {
+export const POST = verifySignatureAppRouter(async (request: Request) => {
   try {
     const { videoId, userId, prompt } = (await request.json()) as WorkerInput;
 
@@ -75,4 +76,4 @@ export async function POST(request: Request) {
       },
     );
   }
-}
+});
