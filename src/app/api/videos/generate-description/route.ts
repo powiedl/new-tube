@@ -1,30 +1,24 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-import { NextResponse } from 'next/server';
+import { genAI, GEMINI_PREFERED_MODEL } from '@/lib/gemini';
+import { db } from '@/db';
+import { videos } from '@/db/schema';
+import { and, eq } from 'drizzle-orm';
 export const runtime = 'edge';
 
 export async function POST(request: Request) {
   try {
-    const { videoId, userId, prompt, internalKey } = await request.json();
-
-    console.log('[edge] incoming params', {
-      videoId,
-      userId,
-      promptLength: prompt?.length,
-    });
+    const { videoId, userId, prompt } = await request.json();
 
     // simple shared-secret auth to prevent public hitting the edge route
+    const incomingKey = request.headers.get('x-internal-key');
     const expectedKey = process.env.EDGE_API_KEY;
 
-    if (internalKey !== expectedKey) {
-      console.warn('[edge] unauthorized, got', internalKey);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized - missing internal key' }),
-        {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      );
+    console.log('[Edge Auth] Incoming:', incomingKey, 'Expected:', expectedKey);
+
+    if (incomingKey !== expectedKey) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     if (!videoId || !userId || !prompt) {
@@ -33,18 +27,47 @@ export async function POST(request: Request) {
         headers: { 'Content-Type': 'application/json' },
       });
     }
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_APIKEY!);
-    const GEMINI_PREFERED_MODEL =
-      process.env.GEMINI_PREFERED_MODEL || 'gemini-2.5-flash-lite';
 
     const model = genAI.getGenerativeModel({ model: GEMINI_PREFERED_MODEL });
 
     // Streaming-Response für bessere UX und um Timeouts zu vermeiden
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    console.log('[edge] got text length', text.length);
+    const stream = await model.generateContentStream(prompt);
 
-    return NextResponse.json({ description: text });
+    // Sammle den vollständigen Text (Streaming wird vom Client konsumiert)
+    let fullText = '';
+    const encoder = new TextEncoder();
+
+    const readableStream = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of stream.stream) {
+            const text = chunk.text();
+            fullText += text;
+            controller.enqueue(encoder.encode(text));
+          }
+
+          // after generation update database directly
+          if (fullText) {
+            await db
+              .update(videos)
+              .set({ description: fullText })
+              .where(and(eq(videos.id, videoId), eq(videos.userId, userId)));
+          }
+
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+    });
+
+    return new Response(readableStream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
   } catch (error) {
     console.error('Error generating description:', error);
     return new Response(

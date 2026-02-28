@@ -2,11 +2,11 @@ import { db } from '@/db';
 import { videos } from '@/db/schema';
 import { serve } from '@upstash/workflow/nextjs';
 import { and, eq } from 'drizzle-orm';
-// import {
-//   genAI,
-//   //  GEMINI_BACKUP_MODEL,
-//   GEMINI_PREFERED_MODEL,
-// } from '@/lib/gemini';
+import {
+  genAI,
+  //  GEMINI_BACKUP_MODEL,
+  GEMINI_PREFERED_MODEL,
+} from '@/lib/gemini';
 
 interface InputType {
   userId: string;
@@ -40,48 +40,18 @@ export const { POST } = serve(async (context) => {
     if (!transcript) throw new Error('Bad request'); // here it makes sense to throw the error inside, because maybe the trackUrl-Endpoint is temporary unavailable
     return transcript;
   });
-  const prompt = `${DESCRIPTION_PROMPT}"${transcript}"`;
-  // call the edge function via workflow helper
-  const aiResponse = await context.call('generate-description-call', {
-    url: `${process.env.NEXT_PUBLIC_APP_URL}/api/videos/generate-description`,
-    method: 'POST',
-    body: {
-      prompt,
-      internalKey: process.env.EDGE_API_KEY,
-    },
-  });
 
-  // debug the raw payload we got back from the edge endpoint
-  console.log('[description] aiResponse raw:', aiResponse);
+  const generatedDescription = await context.run(
+    'generate-description',
+    async () => {
+      //const genAI = new GoogleGenerativeAI(context.env.GEMINI_APIKEY!);
+      const model = genAI.getGenerativeModel({ model: GEMINI_PREFERED_MODEL });
 
-  // extract text from possible shapes (status/body or direct object)
-  let generatedDescription: string | undefined;
-  if (aiResponse && typeof aiResponse === 'object') {
-    if (
-      'description' in aiResponse &&
-      typeof aiResponse.description === 'string'
-    ) {
-      generatedDescription = aiResponse.description as string;
-    } else if ('body' in aiResponse && typeof aiResponse.body === 'string') {
-      try {
-        const parsed = JSON.parse(aiResponse.body);
-        generatedDescription = parsed?.description;
-      } catch (e) {
-        console.warn('[description] failed to parse aiResponse.body', e);
-      }
+      const prompt = `${DESCRIPTION_PROMPT}"${transcript}"`;
+      const result = await model.generateContent(prompt);
+      return result.response.text();
     }
-  }
-  // const generatedDescription = await context.run(
-  //   'generate-description',
-  //   async () => {
-  //     //const genAI = new GoogleGenerativeAI(context.env.GEMINI_APIKEY!);
-  //     const model = genAI.getGenerativeModel({ model: GEMINI_PREFERED_MODEL });
-
-  //     const prompt = `${DESCRIPTION_PROMPT}"${transcript}"`;
-  //     const result = await model.generateContent(prompt);
-  //     return result.response.text();
-  //   },
-  // );
+  );
 
   if (!generatedDescription)
     throw new Error('Unable to generate a description');
