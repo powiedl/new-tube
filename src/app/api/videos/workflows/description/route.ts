@@ -2,7 +2,7 @@ import { db } from '@/db';
 import { videos } from '@/db/schema';
 import { serve } from '@upstash/workflow/nextjs';
 import { and, eq } from 'drizzle-orm';
-import { genAI, GEMINI_PREFERED_MODEL } from '@/lib/gemini';
+import { Client } from '@upstash/qstash';
 
 interface InputType {
   userId: string;
@@ -33,36 +33,28 @@ export const { POST } = serve(async (context) => {
     const trackUrl = `https://stream.mux.com/${video.muxPlaybackId}/text/${video.muxTrackId}.txt`;
     const response = await fetch(trackUrl);
     const transcript = response.text();
-    if (!transcript) throw new Error('Bad request'); // here it makes sense to throw the error inside, because maybe the trackUrl-Endpoint is temporary unavailable
+    if (!transcript) throw new Error('Bad request');
     return transcript;
   });
+
   const fullPrompt = `${DESCRIPTION_PROMPT}"${transcript}"`;
 
-  const generatedDescription = await context.run(
-    'generate-description',
-    async () => {
-      // run Gemini call directly inside workflow
-      const model = genAI.getGenerativeModel({ model: GEMINI_PREFERED_MODEL });
-      const stream = await model.generateContentStream(fullPrompt);
+  // trigger background worker asynchronously (fire-and-forget)
+  // avoid blocking the workflow response
+  const baseUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : 'http://localhost:3000';
 
-      let fullText = '';
-      for await (const chunk of stream.stream) {
-        fullText += chunk.text();
-      }
+  const qstash = new Client({ token: process.env.QSTASH_TOKEN });
 
-      return fullText;
-    },
-  );
+  qstash
+    .publish({
+      url: `${baseUrl}/api/videos/workflows/description-worker`,
+      body: JSON.stringify({ videoId, userId, prompt: fullPrompt }),
+      retries: 2,
+    })
+    .catch((err) => console.error('qstash.publish failed:', err));
 
-  if (!generatedDescription)
-    throw new Error('Unable to generate a description');
-
-  await context.run('update-video', async () => {
-    const updatedVideo = await db
-      .update(videos)
-      .set({ description: generatedDescription })
-      .where(and(eq(videos.id, videoId), eq(videos.userId, userId)))
-      .returning();
-    return updatedVideo;
-  });
+  // return immediately without waiting for generation
+  return { success: true, message: 'Description generation started' };
 });
